@@ -120,6 +120,59 @@
     .kbd-table { width: 100%; border-collapse: collapse; font-size: 13px; }
     .kbd-table td { padding: 4px 10px; border-bottom: 1px solid #0f3460; color: #aaa; }
     .kbd-table td:first-child { color: #a0c4ff; font-family: monospace; }
+
+    /* ── Tab navigation ── */
+    .tabs {
+      display: flex; gap: 4px; flex-wrap: wrap;
+      border-bottom: 2px solid #0f3460; margin-bottom: 18px;
+    }
+    .tab-btn {
+      background: transparent; color: #7a8aa5; border: none;
+      border-bottom: 3px solid transparent;
+      padding: 10px 16px; font-size: 13px; font-weight: bold;
+      letter-spacing: 0.5px; cursor: pointer; border-radius: 6px 6px 0 0;
+      transition: color 0.12s, background 0.12s, border-color 0.12s;
+    }
+    .tab-btn:hover { color: #cdd6e8; background: #12203c; }
+    .tab-btn.active { color: #fff; background: #16213e; border-bottom-color: #4a8aff; }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── Help box (collapsible) ── */
+    .help-box { background: #0d1a30; border: 1px solid #1e3a6e; border-radius: 9px; margin-bottom: 16px; }
+    .help-box > summary {
+      cursor: pointer; padding: 12px 16px; font-weight: bold;
+      color: #a0c4ff; font-size: 13px; list-style: none; user-select: none;
+    }
+    .help-box > summary::-webkit-details-marker { display: none; }
+    .help-box > summary::before { content: '▸ '; color: #4a8aff; }
+    .help-box[open] > summary::before { content: '▾ '; }
+    .help-box .help-body { padding: 0 18px 16px; color: #c7d0e2; font-size: 13px; line-height: 1.6; }
+    .help-box ol { margin: 8px 0 8px 20px; }
+    .help-box li { margin-bottom: 10px; }
+    .help-box code {
+      background: #061224; border: 1px solid #1a3a60; border-radius: 4px;
+      padding: 1px 5px; font-size: 12px; color: #7fffcf; word-break: break-all;
+    }
+    .help-box .hl { color: #ffd700; font-weight: bold; }
+
+    /* Small inline hint under a field */
+    .hint-note { color: #667; font-size: 11px; margin: -4px 0 12px 160px; line-height: 1.4; }
+    @media (max-width: 620px) { .hint-note { margin-left: 0; } }
+
+    /* ── Hotkey summary table ── */
+    .hotkey-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 6px; }
+    .hotkey-table th {
+      text-align: left; color: #667; font-size: 10px; text-transform: uppercase;
+      letter-spacing: 1px; padding: 4px 10px; border-bottom: 1px solid #1e3a6e;
+    }
+    .hotkey-table td { padding: 6px 10px; border-bottom: 1px solid #0f3460; color: #cdd6e8; }
+    .hotkey-table td.k {
+      color: #7fff7f; font-family: monospace; white-space: nowrap; width: 130px;
+    }
+    .hotkey-table td.k.none { color: #556; }
+    .hotkey-empty { color: #556; font-size: 12px; padding: 10px; }
   </style>
 </head>
 <body>
@@ -127,105 +180,185 @@
 <h1>HTM Game Clock</h1>
 <p class="subtitle">Configuration — save to apply changes</p>
 
-<!-- Timer settings -->
-<div class="card">
-  <h2>Timer</h2>
-  <div class="field-row">
-    <label>Starting minutes</label>
-    <input type="number" id="timer-minutes" min="1" max="999" value="60" />
+<div class="tabs" id="config-tabs">
+  <button class="tab-btn active" data-tab="general">General</button>
+  <button class="tab-btn" data-tab="sheets">Google Sheets</button>
+  <button class="tab-btn" data-tab="hints">Hint Groups</button>
+  <button class="tab-btn" data-tab="hotkeys">Hotkeys</button>
+  <button class="tab-btn" data-tab="reference">Reference</button>
+</div>
+
+<!-- ═══ GENERAL ═══ -->
+<div class="tab-panel active" data-panel="general">
+  <div class="card">
+    <h2>Timer</h2>
+    <div class="field-row">
+      <label>Starting minutes</label>
+      <input type="number" id="timer-minutes" min="1" max="999" value="60" />
+    </div>
+    <div class="field-row">
+      <label>Start volume</label>
+      <input type="range" id="volume" min="0" max="100" value="40" />
+      <span class="vol-val" id="vol-display">40%</span>
+    </div>
+    <div class="field-row">
+      <label style="line-height:1.3;">Hint cycle speed
+        <div style="color:#555;font-size:11px;margin-top:2px;">Seconds between hints when<br>multiple are on screen.</div>
+      </label>
+      <input type="number" id="hint-cycle-seconds" min="1" max="60" value="5" />
+      <span style="color:#666;font-size:12px;">sec</span>
+    </div>
+    <div class="field-row" style="margin-top:10px;padding-top:10px;border-top:1px solid #0f3460;">
+      <label style="line-height:1.3;">Intro media
+        <div style="color:#555;font-size:11px;margin-top:2px;">Video or audio file in assets/,<br>played on Start before the timer begins.<br>Leave empty to skip.</div>
+      </label>
+      <input type="text" id="intro-media-path" placeholder="e.g. intro.mp4 or intro.mp3 — empty for none" />
+    </div>
   </div>
-  <div class="field-row">
-    <label>Start volume</label>
-    <input type="range" id="volume" min="0" max="100" value="40" />
-    <span class="vol-val" id="vol-display">40%</span>
+
+  <div class="card">
+    <h2>Room</h2>
+    <div class="field-row">
+      <label>Room name</label>
+      <input type="text" id="room-name" placeholder="e.g. Nibiru" />
+    </div>
+    <div class="hint-note">Shows on logged sessions and on the game screen.</div>
   </div>
-  <div class="field-row">
-    <label style="line-height:1.3;">Hint cycle speed
-      <div style="color:#555;font-size:11px;margin-top:2px;">Seconds between hints when<br>multiple are on screen.</div>
-    </label>
-    <input type="number" id="hint-cycle-seconds" min="1" max="60" value="5" />
-    <span style="color:#666;font-size:12px;">sec</span>
-  </div>
-  <div class="field-row" style="margin-top:10px;padding-top:10px;border-top:1px solid #0f3460;">
-    <label style="line-height:1.3;">Intro media
-      <div style="color:#555;font-size:11px;margin-top:2px;">Video or audio file in assets/,<br>played on Start before the timer begins.<br>Leave empty to skip.</div>
-    </label>
-    <input type="text" id="intro-media-path" placeholder="e.g. intro.mp4 or intro.mp3 — empty for none" />
-  </div>
-  <div class="field-row" style="margin-top:10px;padding-top:10px;border-top:1px solid #0f3460;">
-    <label style="line-height:1.3;">Start / Stop key
-      <div style="color:#555;font-size:11px;margin-top:2px;">Press 1× to start, press again to stop.<br>Locked until room is reset.</div>
-    </label>
-    <div id="start-stop-key-capture" class="key-capture" tabindex="0">click to assign</div>
+
+  <div class="card">
+    <h2>Logo Image</h2>
+    <div class="field-row">
+      <label>Image URL / path</label>
+      <input type="text" id="logo-path" placeholder="http://… or assets/logo.png — leave empty for none" />
+    </div>
+    <img id="logo-preview" class="logo-preview" alt="" />
   </div>
 </div>
 
-<!-- Game Sheets -->
-<div class="card">
-  <h2>Game Sheets</h2>
-  <div class="field-row">
-    <label>Room name</label>
-    <input type="text" id="room-name" placeholder="e.g. Nibiru" />
+<!-- ═══ GOOGLE SHEETS ═══ -->
+<div class="tab-panel" data-panel="sheets">
+  <details class="help-box">
+    <summary>How to connect Google Sheets — step by step</summary>
+    <div class="help-body">
+      Session logs and hint logs are written to Google Sheets you own. You do this once per room.
+      <ol>
+        <li><b>Get each Sheet's ID.</b> Open your Google Sheet in a browser. The ID is the long code in
+          the address bar between <code>/d/</code> and <code>/edit</code>:<br>
+          <code>https://docs.google.com/spreadsheets/d/<span class="hl">1AbCdEf…long…xyz</span>/edit</code><br>
+          Copy the highlighted part into the matching “spreadsheet ID” field below. It is NOT the sheet's title.</li>
+        <li><b>Make the tabs.</b> Inside that Sheet, add a tab (the <code>+</code> at the bottom-left) for sessions
+          and one for hints. Type those exact tab names into the “tab name” fields below —
+          capitalisation and spaces must match exactly.</li>
+        <li><b>Put the key file on the Pi.</b> Ask whoever set up the Google Cloud project for the
+          service-account key file <code>google-credentials.json</code>. Place it at
+          <code>~/htm-room-control/google-credentials.json</code> on the Pi, then run
+          <code>sudo systemctl restart htm-room-control</code>.</li>
+        <li><b>Find the robot's email.</b> Open that key file in a text editor and find the line
+          <code>"client_email": "…@….iam.gserviceaccount.com"</code>. Copy that address.</li>
+        <li><b>Share each Sheet with it.</b> In every Google Sheet you referenced above:
+          <b>Share</b> → paste that address → set it to <span class="hl">Editor</span> → Send.</li>
+        <li><b>Save &amp; check.</b> Click <b>Save</b> at the bottom of this page, then open
+          <code>http://192.168.0.125:4000/healthz</code> in a browser. It should show
+          <code>"sheets": true</code>. If it still says <code>false</code>: the key file isn't in the right
+          place, or a Sheet isn't shared with the robot email.</li>
+      </ol>
+      Everything on the game clock keeps working even when Sheets is not connected — you just won't get the logs.
+    </div>
+  </details>
+
+  <div class="card">
+    <h2>Session Log</h2>
+    <div class="field-row">
+      <label>Spreadsheet ID</label>
+      <input type="text" id="sessions-spreadsheet-id" placeholder="the code from the Sheet's URL" />
+    </div>
+    <div class="hint-note">From <code>docs.google.com/spreadsheets/d/<b>THIS-PART</b>/edit</code> — not the Sheet's name.</div>
+    <div class="field-row">
+      <label>Tab name</label>
+      <input type="text" id="sessions-tab-name" placeholder="e.g. Sessions" />
+    </div>
+    <div class="hint-note">Must exactly match a tab along the bottom of that Google Sheet.</div>
   </div>
-  <div class="field-row" style="margin-top:10px;padding-top:10px;border-top:1px solid #0f3460;">
-    <label>Sessions spreadsheet ID</label>
-    <input type="text" id="sessions-spreadsheet-id" placeholder="Google Sheet ID" />
+
+  <div class="card">
+    <h2>Hint Log</h2>
+    <div class="field-row">
+      <label>Spreadsheet ID</label>
+      <input type="text" id="hints-spreadsheet-id" placeholder="the code from the Sheet's URL" />
+    </div>
+    <div class="hint-note">Can be the same Sheet as the session log, or a different one.</div>
+    <div class="field-row">
+      <label>Hints tab name</label>
+      <input type="text" id="hints-tab-name" placeholder="e.g. Nibiru-Hints" />
+    </div>
+    <div class="field-row">
+      <label>Hotkeys tab name</label>
+      <input type="text" id="hotkeys-tab-name" placeholder="e.g. Hotkeys" />
+    </div>
+    <div class="hint-note">Optional. If set, your hint hotkey list is mirrored to this tab for reference.</div>
   </div>
-  <div class="field-row">
-    <label>Sessions tab name</label>
-    <input type="text" id="sessions-tab-name" placeholder="e.g. Sessions" />
-  </div>
-  <div class="field-row" style="margin-top:10px;padding-top:10px;border-top:1px solid #0f3460;">
-    <label>Hints spreadsheet ID</label>
-    <input type="text" id="hints-spreadsheet-id" placeholder="Google Sheet ID" />
-  </div>
-  <div class="field-row">
-    <label>Hints tab name</label>
-    <input type="text" id="hints-tab-name" placeholder="e.g. Nibiru-Hints" />
-  </div>
-  <div class="field-row">
-    <label>Hotkeys tab name</label>
-    <input type="text" id="hotkeys-tab-name" placeholder="e.g. Hotkeys" />
-  </div>
-  <div class="field-row" style="margin-top:10px;padding-top:10px;border-top:1px solid #0f3460;">
-    <label>Operators spreadsheet ID</label>
-    <input type="text" id="operators-spreadsheet-id" placeholder="Tracker's spreadsheet ID (Drop Down options tab)" />
+
+  <div class="card">
+    <h2>Operators Dropdown</h2>
+    <div class="field-row">
+      <label>Spreadsheet ID</label>
+      <input type="text" id="operators-spreadsheet-id" placeholder="Tracker's spreadsheet ID" />
+    </div>
+    <div class="hint-note">Optional. Reads operator names from a “Drop Down options” tab to fill the operator picker on the console.</div>
   </div>
 </div>
 
-<!-- Logo -->
-<div class="card">
-  <h2>Logo Image</h2>
-  <div class="field-row">
-    <label>Image URL / path</label>
-    <input type="text" id="logo-path" placeholder="http://… or assets/logo.png — leave empty for none" />
+<!-- ═══ HINT GROUPS ═══ -->
+<div class="tab-panel" data-panel="hints">
+  <div class="card">
+    <h2>Hint Groups &amp; Hints</h2>
+    <p style="color:#667;font-size:12px;margin-bottom:14px;line-height:1.5;">
+      Group your hints (e.g. by puzzle). Give any hint a keyboard shortcut: click its key box, then press
+      the key you want. Click again to change it, right-click to clear. All assigned shortcuts are listed
+      under the <b>Hotkeys</b> tab.
+    </p>
+    <div id="groups-container"></div>
+    <button class="btn-add-group" id="btn-add-group" style="margin-top:12px;">+ Add Group</button>
   </div>
-  <img id="logo-preview" class="logo-preview" alt="" />
 </div>
 
-<!-- Hint groups -->
-<div class="card">
-  <h2>Hint Groups &amp; Hints</h2>
-  <p style="color:#666;font-size:12px;margin-bottom:14px;">
-    Click a key field and press any key to assign a shortcut. Click again to change, right-click to clear.
-    Groups and hints can be reordered by dragging (coming soon).
-  </p>
-  <div id="groups-container"></div>
-  <button class="btn-add-group" id="btn-add-group" style="margin-top:12px;">+ Add Group</button>
+<!-- ═══ HOTKEYS ═══ -->
+<div class="tab-panel" data-panel="hotkeys">
+  <div class="card">
+    <h2>Start / Stop Key</h2>
+    <div class="field-row">
+      <label style="line-height:1.3;">Shortcut key
+        <div style="color:#555;font-size:11px;margin-top:2px;">Press 1× to start the timer, press again to stop.<br>Stays locked until the room is reset.</div>
+      </label>
+      <div id="start-stop-key-capture" class="key-capture" tabindex="0">click to assign</div>
+    </div>
+    <div class="hint-note">Click the box, then press any key (or combo). Right-click the box to clear it.</div>
+  </div>
+
+  <div class="card">
+    <h2>All Assigned Hint Shortcuts</h2>
+    <p style="color:#667;font-size:12px;margin-bottom:6px;">
+      Every hint with a key assigned, across all groups. Edit these in the <b>Hint Groups</b> tab.
+    </p>
+    <div id="hotkey-summary"></div>
+  </div>
 </div>
 
-<!-- Keyboard reference -->
-<div class="card">
-  <h2>Timer Keyboard Reference</h2>
-  <table class="kbd-table">
-    <tr><td>Start/Stop key</td><td>1st press = Start timer. 2nd press = Stop permanently. Locked until reset.</td></tr>
-    <tr><td>Click / Space</td><td>Same as Start/Stop key (click on game screen)</td></tr>
-    <tr><td>Pause/Break</td><td>Pause / Resume timer silently (no Escaped screen)</td></tr>
-    <tr><td>Scroll Lock or `</td><td>Return to waiting splash &amp; reset room</td></tr>
-    <tr><td>Numpad + / −</td><td>Volume up / down</td></tr>
-    <tr><td>Numpad 0 or /</td><td>Hide hint on game screen</td></tr>
-    <tr><td>F11</td><td>Toggle fullscreen on game screen</td></tr>
-  </table>
+<!-- ═══ REFERENCE ═══ -->
+<div class="tab-panel" data-panel="reference">
+  <div class="card">
+    <h2>Game-Screen Keyboard Reference</h2>
+    <p style="color:#667;font-size:12px;margin-bottom:10px;">Keys that work on the game screen itself (fixed — not configurable here).</p>
+    <table class="kbd-table">
+      <tr><td>Start/Stop key</td><td>1st press = Start timer. 2nd press = Stop permanently. Locked until reset.</td></tr>
+      <tr><td>Click / Space</td><td>Same as Start/Stop key (click on game screen)</td></tr>
+      <tr><td>Pause/Break</td><td>Pause / Resume timer silently (no Escaped screen)</td></tr>
+      <tr><td>Scroll Lock or `</td><td>Return to waiting splash &amp; reset room</td></tr>
+      <tr><td>Numpad + / −</td><td>Volume up / down</td></tr>
+      <tr><td>Numpad 0 or /</td><td>Hide hint on game screen</td></tr>
+      <tr><td>F11</td><td>Toggle fullscreen on game screen</td></tr>
+    </table>
+  </div>
 </div>
 
 <div class="bottom-bar">
@@ -548,8 +681,49 @@ document.getElementById('reset-btn').addEventListener('click', () => {
   populateForm({});
 });
 
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+const TAB_KEY = 'htm-config-tab';
+function showTab(name) {
+  document.querySelectorAll('.tab-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.tab === name));
+  document.querySelectorAll('.tab-panel').forEach(p =>
+    p.classList.toggle('active', p.dataset.panel === name));
+  try { localStorage.setItem(TAB_KEY, name); } catch (e) {}
+  if (name === 'hotkeys') buildHotkeySummary();
+}
+document.getElementById('config-tabs').addEventListener('click', (e) => {
+  const btn = e.target.closest('.tab-btn');
+  if (btn) showTab(btn.dataset.tab);
+});
+
+// ── Hotkey summary (read-only view of every assigned hint shortcut) ───────────
+function buildHotkeySummary() {
+  const box = document.getElementById('hotkey-summary');
+  const groups = readGroupsFromDOM();
+  const rows = [];
+  groups.forEach(g => (g.hints || []).forEach(h => {
+    if (h.key) rows.push({ key: h.key, group: g.name || '(unnamed group)', text: h.text });
+  }));
+  if (!rows.length) {
+    box.innerHTML = '<div class="hotkey-empty">No hint shortcuts assigned yet. Assign them in the Hint Groups tab.</div>';
+    return;
+  }
+  rows.sort((a, b) => a.key.localeCompare(b.key));
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  box.innerHTML =
+    '<table class="hotkey-table"><thead><tr><th>Key</th><th>Group</th><th>Hint</th></tr></thead><tbody>' +
+    rows.map(r => `<tr><td class="k">${esc(r.key)}</td><td>${esc(r.group)}</td><td>${esc(r.text)}</td></tr>`).join('') +
+    '</tbody></table>';
+}
+
 // ── Init — fetch config from server then populate ─────────────────────────────
-fetchConfig().then(cfg => populateForm(cfg));
+fetchConfig().then(cfg => {
+  populateForm(cfg);
+  let startTab = 'general';
+  try { startTab = localStorage.getItem(TAB_KEY) || 'general'; } catch (e) {}
+  if (!document.querySelector('.tab-btn[data-tab="' + startTab + '"]')) startTab = 'general';
+  showTab(startTab);
+});
 </script>
 </body>
 </html>
