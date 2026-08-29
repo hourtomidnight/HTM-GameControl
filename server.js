@@ -56,7 +56,7 @@ signalBus.start();
 
 const sheets = createSheets({ credentialsPath: CREDS_PATH, config, eventStore, gameStore });
 
-const engine = createGameEngine({ eventStore, gameStore, sheets, signalBus });
+const engine = createGameEngine({ eventStore, gameStore, sheets, signalBus, roomName: cfg.roomName || '' });
 engine.setStartMinutes((cfg.game && cfg.game.timerMinutes) || 60);
 
 const { server } = createWebServer({

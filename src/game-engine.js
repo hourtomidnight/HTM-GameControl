@@ -9,6 +9,7 @@ function createGameEngine(deps) {
     now = () => Date.now(),
     setInterval: setIv = setInterval, clearInterval: clearIv = clearInterval,
     sheets = null, signalBus = null,
+    roomName = '',
   } = deps;
 
   let startMinutes = 60;
@@ -111,11 +112,11 @@ function createGameEngine(deps) {
 
     if ((type === 'start' || type === 'force-start') && s.phase === 'waiting' && !s.gameLocked) {
       const startTime = now();
-      session = st.createSession({ startTime, room: s.room || '', ...pendingFields });
+      session = st.createSession({ startTime, room: roomName, ...pendingFields });
       let g;
       try {
         g = gameStore.create({
-          started_ts: startTime, room: session.room, operator: session.operator,
+          started_ts: startTime, room: roomName, operator: session.operator,
           team_name: session.teamName, new_players: session.newPlayers,
           exp_players: session.experiencedPlayers, notes: session.notes,
         });
@@ -146,6 +147,7 @@ function createGameEngine(deps) {
     }
 
     if (ADJ[type]) {
+      if (s.gameLocked || s.phase !== 'running') return;
       const [dMin, dSec] = ADJ[type];
       adjustClock(dMin, dSec);
       if (session) {
@@ -154,7 +156,7 @@ function createGameEngine(deps) {
                       net_adjust_s: st.netAdjustmentSeconds(session) });
       }
       record(type, { _source: msg._source });
-      if (sheets && gameId != null) safeSheets(() => sheets.onSessionSync(gameId, session));
+      if (sheets && gameId != null && session) safeSheets(() => sheets.onSessionSync(gameId, session));
       emit();
       return;
     }

@@ -232,7 +232,7 @@ function createWebServer(deps) {
     // ── GET /healthz ────────────────────────────────────────────────────
     if (url === '/healthz' && req.method === 'GET') {
       let sheetsOk = false;
-      try { sheetsOk = !!sheets && typeof sheets.readOperators === 'function'; } catch { sheetsOk = false; }
+      try { sheetsOk = !!(sheets && sheets.enabled); } catch { sheetsOk = false; }
       sendJson(res, 200, { ok: true, uptime: process.uptime(), sheets: sheetsOk, db: true });
       return;
     }

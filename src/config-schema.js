@@ -2,8 +2,17 @@ function isStr(v) { return typeof v === 'string'; }
 function isNum(v) { return typeof v === 'number' && Number.isFinite(v); }
 function isInt(v) { return Number.isInteger(v); }
 
+const ALLOWED_TOP_LEVEL = new Set([
+  'roomName', 'game', 'sheets', 'hintGroups', 'banks',
+  'plcs', 'signals', 'rules', 'profiles', 'sequences',
+]);
+
 function validateConfig(cfg = {}) {
   const errors = [];
+
+  for (const k of Object.keys(cfg || {})) {
+    if (!ALLOWED_TOP_LEVEL.has(k)) errors.push('unknown top-level key: ' + k);
+  }
 
   const g = cfg.game;
   if (g !== undefined) {

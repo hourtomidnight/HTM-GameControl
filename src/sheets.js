@@ -122,6 +122,7 @@ function createSheets({ credentialsPath, config, eventStore, gameStore, googleFa
   const readOperators = async (...args) => (await readOperatorsGuarded(...args)) ?? [];
 
   return {
+    enabled: api !== null,
     onGameStart, onSessionSync, onHint, readOperators,
     buildSessionRow, buildHintRow, formatDuration, formatNetAdjustment,
   };

@@ -140,6 +140,45 @@ test('onState returns an unsubscribe function that stops further callbacks', () 
   assert.strictEqual(calls, afterFirst);
 });
 
+test('created game row carries the configured room name', () => {
+  const es = createEventStore({ path: ':memory:' });
+  const gs = createGameStore(es.db);
+  let t = 10000;
+  const engine = createGameEngine({
+    eventStore: es, gameStore: gs, roomName: 'Nibiru',
+    now: () => t, setInterval: () => 0, clearInterval: () => {},
+  });
+  engine.command({ type: 'start' });
+  const id = engine.getState().gameId;
+  assert.strictEqual(gs.get(id).room, 'Nibiru');
+});
+
+test('clock adjust after escaped is a no-op (no clock change, no event, no sheets call)', () => {
+  const es = createEventStore({ path: ':memory:' });
+  const gs = createGameStore(es.db);
+  let t = 10000;
+  let sessionSyncCalls = 0;
+  const sheets = {
+    onGameStart() {}, onHint() {},
+    onSessionSync() { sessionSyncCalls++; },
+  };
+  const engine = createGameEngine({
+    eventStore: es, gameStore: gs, sheets,
+    now: () => t, setInterval: () => 1, clearInterval: () => {},
+  });
+  engine.command({ type: 'start' });
+  engine.command({ type: 'escaped' });
+  const syncsAfterEscaped = sessionSyncCalls;
+  const before = engine.getState();
+  engine.command({ type: 'add-min' });
+  const after = engine.getState();
+  assert.strictEqual(after.currentMin, before.currentMin);
+  assert.strictEqual(after.currentSec, before.currentSec);
+  assert.strictEqual(es.query({ type: 'add-min' }).length, 0);
+  assert.strictEqual(sessionSyncCalls, syncsAfterEscaped);
+  assert.strictEqual(es.query({ type: 'sheets-error' }).length, 0);
+});
+
 test('game state is mirrored onto the internal signal bus when provided', () => {
   const { createSignalBus } = require('../src/signal-bus');
   const { createInternalDriver } = require('../src/drivers/internal');

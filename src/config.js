@@ -13,7 +13,11 @@ function createConfig({ path, db, now = () => Date.now() }) {
   function save(obj) {
     const { ok, errors } = validateConfig(obj);
     if (!ok) return { ok, errors };
-    fs.writeFileSync(path, JSON.stringify(obj, null, 2));
+    try {
+      fs.writeFileSync(path, JSON.stringify(obj, null, 2));
+    } catch (e) {
+      return { ok: false, errors: ['could not write config: ' + e.message] };
+    }
     try { db.prepare('INSERT INTO config_history (ts, json) VALUES (?, ?)')
             .run(now(), JSON.stringify(obj)); } catch {}
     cache = obj;

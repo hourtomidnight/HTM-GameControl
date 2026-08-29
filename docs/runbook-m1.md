@@ -66,14 +66,15 @@ the operator console loads and the clock responds to start/stop.
 1. In `config.json` point `config.plcs[0]` at the room PLC (host, port, unit id,
    the signal/register map).
 2. Restart: `sudo systemctl restart htm-room-control`.
-3. Watch the event stream while toggling a PLC bit:
+3. Watch the live event stream while toggling a PLC bit:
 
    ```bash
-   curl -N "http://localhost:4000/api/events?type=signal-change"
+   curl -N http://localhost:4000/events | grep --line-buffered signal-change
    ```
 
-   Each PLC bit change should appear as a `signal-change` event. M1 Modbus is
-   **read-only** — writes land in M3.
+   `/events` is the SSE stream — it also carries `state` snapshots interleaved,
+   so grep for `signal-change`. Each PLC bit change should appear as a
+   `signal-change` line. M1 Modbus is **read-only** — writes land in M3.
 
 ## 8. Rollback
 

@@ -61,14 +61,17 @@ if (typeof module !== 'undefined' && module.exports) {
 
   // Config is server-owned; we only need the logo path for display.
   fetch('/config').then(r => r.ok ? r.json() : {}).then(cfg => {
-    if (logoEl) logoEl.src = cfg.logoPath || '';
+    const g = cfg.game || {};
+    if (logoEl) logoEl.src = g.logoPath || '';
+    HINT_CYCLE_MS = g.hintCycleSeconds ? g.hintCycleSeconds * 1000 : 5000;
+    restartHintCycle();
   }).catch(() => {});
 
   // ── Hint-cycle DISPLAY (driven entirely by state.activeHints) ─────────────
   let activeHints   = [];
   let hintCycleIdx  = 0;
   let hintCycleTimer = null;
-  const HINT_CYCLE_MS = 5000;
+  let HINT_CYCLE_MS = 5000;
 
   function renderCurrentHint() {
     if (activeHints.length === 0) { clueBoxEl.textContent = ''; return; }

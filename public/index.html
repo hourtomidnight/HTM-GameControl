@@ -213,13 +213,12 @@
       timerEl.textContent = prefix + pad(d.currentMin) + ':' + pad(d.currentSec);
 
       timerEl.className = '';
-      if (d.gameLocked)            timerEl.classList.add('escaped');
-      else if (d.clockForward)     timerEl.classList.add('negative');
-      else if (!d.timerHasStopped) timerEl.classList.add('running');
+      if (d.gameLocked)               timerEl.classList.add('escaped');
+      else if (d.clockForward)        timerEl.classList.add('negative');
+      else if (d.timerRunning === true) timerEl.classList.add('running');
 
-      const states = { true: { true: 'Game locked', false: 'Running' }, false: { true: 'Waiting', false: 'Paused' } };
       connLabel.textContent = d.gameLocked ? 'Escaped!' :
-        (!d.onSplash && !d.timerHasStopped) ? 'Running' :
+        d.timerRunning === true ? 'Running' :
         d.onSplash ? 'Waiting' : 'Paused';
     } catch(err) {}
   };

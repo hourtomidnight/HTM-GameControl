@@ -84,9 +84,9 @@
       if (d.type !== 'state') return;
       timer.textContent = (d.clockForward ? '−' : '') + pad(d.currentMin) + ':' + pad(d.currentSec);
       timer.className = 'htm-timer' +
-        (d.gameLocked ? ' escaped' : d.clockForward ? ' negative' : !d.timerHasStopped ? ' running' : '');
+        (d.gameLocked ? ' escaped' : d.clockForward ? ' negative' : d.timerRunning === true ? ' running' : '');
       status.textContent = d.gameLocked ? 'Escaped!' :
-        (!d.onSplash && !d.timerHasStopped) ? 'Running' :
+        d.timerRunning === true ? 'Running' :
         d.onSplash ? 'Waiting' : 'Paused';
     } catch(err) {}
   };

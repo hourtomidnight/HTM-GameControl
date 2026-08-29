@@ -236,6 +236,11 @@
 
 <script>
 // ── Helpers ───────────────────────────────────────────────────────────────────
+// The last config we fetched from the server. The save handler merges the
+// fields this page owns onto THIS object so keys the page never touches
+// (plcs, signals, rules, profiles, sequences, banks) are preserved.
+let currentCfg = {};
+
 function loadConfig() {
   try { return JSON.parse(sessionStorage.getItem('htm-config') || localStorage.getItem('htm-config')) || {}; } catch(e) { return {}; }
 }
@@ -248,10 +253,12 @@ async function fetchConfig() {
       const json = JSON.stringify(cfg);
       sessionStorage.setItem('htm-config', json);
       localStorage.setItem('htm-config', json);
-      return cfg;
+      currentCfg = cfg || {};
+      return currentCfg;
     }
   } catch(e) {}
-  return loadConfig();
+  currentCfg = loadConfig();
+  return currentCfg;
 }
 
 async function saveConfig(cfg) {
@@ -468,25 +475,27 @@ document.getElementById('btn-add-group').addEventListener('click', () => {
 
 // ── Populate form from config object ─────────────────────────────────────────
 function populateForm(cfg) {
-  document.getElementById('timer-minutes').value = cfg.timerMinutes || 60;
-  document.getElementById('hint-cycle-seconds').value = cfg.hintCycleSeconds || 5;
-  volSlider.value = Math.round((cfg.volume || 0.4) * 100);
+  const g = cfg.game || {};
+  const sh = cfg.sheets || {};
+  document.getElementById('timer-minutes').value = g.timerMinutes || 60;
+  document.getElementById('hint-cycle-seconds').value = g.hintCycleSeconds || 5;
+  volSlider.value = Math.round((g.volume != null ? g.volume : 0.4) * 100);
   volDisplay.textContent = volSlider.value + '%';
-  logoPathEl.value = cfg.logoPath || '';
-  if (cfg.logoPath) { logoPreview.src = cfg.logoPath; logoPreview.style.display = 'block'; }
-  else              { logoPreview.style.display = 'none'; }
+  logoPathEl.value = g.logoPath || '';
+  if (g.logoPath) { logoPreview.src = g.logoPath; logoPreview.style.display = 'block'; }
+  else            { logoPreview.style.display = 'none'; }
 
-  document.getElementById('intro-media-path').value = cfg.introMediaPath || '';
+  document.getElementById('intro-media-path').value = g.introMediaPath || '';
 
   document.getElementById('room-name').value = cfg.roomName || '';
-  document.getElementById('sessions-spreadsheet-id').value = cfg.sessionsSpreadsheetId || '';
-  document.getElementById('sessions-tab-name').value = cfg.sessionsTabName || '';
-  document.getElementById('hints-spreadsheet-id').value = cfg.hintsSpreadsheetId || '';
-  document.getElementById('hints-tab-name').value = cfg.hintsTabName || '';
-  document.getElementById('hotkeys-tab-name').value = cfg.hotkeysTabName || '';
-  document.getElementById('operators-spreadsheet-id').value = cfg.operatorsSpreadsheetId || '';
+  document.getElementById('sessions-spreadsheet-id').value = sh.sessionsSpreadsheetId || '';
+  document.getElementById('sessions-tab-name').value = sh.sessionsTabName || '';
+  document.getElementById('hints-spreadsheet-id').value = sh.hintsSpreadsheetId || '';
+  document.getElementById('hints-tab-name').value = sh.hintsTabName || '';
+  document.getElementById('hotkeys-tab-name').value = sh.hotkeysTabName || '';
+  document.getElementById('operators-spreadsheet-id').value = sh.operatorsSpreadsheetId || '';
 
-  const key = cfg.startStopKey || '';
+  const key = g.startStopKey || '';
   startStopCapture.dataset.key = key;
   startStopCapture.textContent = key || 'click to assign';
   startStopCapture.className = 'key-capture' + (key ? ' has-key' : '');
@@ -499,15 +508,24 @@ function populateForm(cfg) {
 
 // ── Save ──────────────────────────────────────────────────────────────────────
 document.getElementById('save-btn').addEventListener('click', async () => {
-  const saved = {
+  // Merge over the current config — only overwrite the keys this page owns.
+  const base = (currentCfg && typeof currentCfg === 'object') ? currentCfg : {};
+  const merged = { ...base };
+
+  merged.roomName = document.getElementById('room-name').value.trim();
+
+  merged.game = {
+    ...(base.game || {}),
     timerMinutes:     parseInt(document.getElementById('timer-minutes').value) || 60,
     hintCycleSeconds: parseInt(document.getElementById('hint-cycle-seconds').value) || 5,
     volume:           parseInt(volSlider.value) / 100,
     logoPath:         logoPathEl.value.trim(),
     introMediaPath:   document.getElementById('intro-media-path').value.trim(),
     startStopKey:     startStopCapture.dataset.key || '',
-    hintGroups:       readGroupsFromDOM(),
-    roomName:                document.getElementById('room-name').value.trim(),
+  };
+
+  merged.sheets = {
+    ...(base.sheets || {}),
     sessionsSpreadsheetId:   document.getElementById('sessions-spreadsheet-id').value.trim(),
     sessionsTabName:         document.getElementById('sessions-tab-name').value.trim(),
     hintsSpreadsheetId:      document.getElementById('hints-spreadsheet-id').value.trim(),
@@ -515,7 +533,11 @@ document.getElementById('save-btn').addEventListener('click', async () => {
     hotkeysTabName:          document.getElementById('hotkeys-tab-name').value.trim(),
     operatorsSpreadsheetId:  document.getElementById('operators-spreadsheet-id').value.trim(),
   };
-  await saveConfig(saved);
+
+  merged.hintGroups = readGroupsFromDOM();
+
+  currentCfg = merged;
+  await saveConfig(merged);
   document.getElementById('status-msg').textContent = '✓ Saved!';
   setTimeout(() => document.getElementById('status-msg').textContent = '', 2000);
 });

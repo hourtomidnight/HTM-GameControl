@@ -3,7 +3,7 @@
 # Run once from the repo root: bash scripts/setup-pi.sh
 set -e
 
-BRANCH="${BRANCH:-m1-implementation}"
+BRANCH="${BRANCH:-main}"
 REPO="https://github.com/hourtomidnight/htm-room-control"
 INSTALL_DIR="$HOME/htm-room-control"
 SERVICE_NAME="htm-room-control"
