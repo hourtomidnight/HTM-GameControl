@@ -28,7 +28,7 @@ function createModbusDriver({ plcs = [], netFactory = nodeNet, scheduler = {}, o
     for (const { pin, sig } of defs || []) {
       const a = sig.address;
       if (!groups.has(a.plc)) groups.set(a.plc, []);
-      groups.get(a.plc).push({ fn: a.fn, register: a.register, pin });
+      groups.get(a.plc).push({ fn: a.fn, register: a.register, pin, unit: a.unit ?? 1 });
     }
   }
 
@@ -93,8 +93,12 @@ function createModbusDriver({ plcs = [], netFactory = nodeNet, scheduler = {}, o
       onEvent({ type: 'driver-error', plc: plcId, message: e.message });
       return;
     }
-    const req = c.pending.shift();
-    if (!req) return;
+    const idx = c.pending.findIndex((p) => p.txId === out.txId);
+    if (idx === -1) {
+      onEvent({ type: 'driver-error', plc: plcId, message: 'unmatched response txId ' + out.txId });
+      return;
+    }
+    const [req] = c.pending.splice(idx, 1);
     out.data.forEach((val, i) => {
       const g = req.groupDefs[i];
       if (!g) return;
@@ -115,14 +119,18 @@ function createModbusDriver({ plcs = [], netFactory = nodeNet, scheduler = {}, o
       if (!byFn.has(d.fn)) byFn.set(d.fn, []);
       byFn.get(d.fn).push(d);
     }
+    // Evict pending entries never answered on previous ticks so the queue
+    // cannot grow unbounded after a lost frame.
+    while (c.pending.length > byFn.size) c.pending.shift();
     for (const [fn, listRaw] of byFn) {
       const list = listRaw.slice().sort((a, b) => a.register - b.register);
       const start = list[0].register;
       const qty = list[list.length - 1].register - start + 1;
+      const unit = list[0].unit ?? 1;
       c.txId = (c.txId + 1) & 0xffff;
       let frame;
       try {
-        frame = encodeReadRequest({ txId: c.txId, unit: 1, fn, address: start, quantity: qty });
+        frame = encodeReadRequest({ txId: c.txId, unit, fn, address: start, quantity: qty });
       } catch (e) {
         onEvent({ type: 'driver-error', plc: plcId, message: e.message });
         continue;
@@ -131,7 +139,7 @@ function createModbusDriver({ plcs = [], netFactory = nodeNet, scheduler = {}, o
       for (let r = start; r < start + qty; r++) {
         groupDefs.push(list.find((x) => x.register === r) || null);
       }
-      c.pending.push({ groupDefs });
+      c.pending.push({ txId: c.txId, groupDefs });
       try {
         c.sock.write(frame);
       } catch (e) {
@@ -167,7 +175,7 @@ function createModbusDriver({ plcs = [], netFactory = nodeNet, scheduler = {}, o
     conns.clear();
   }
 
-  return { init, readAll, write, startPolling, stop, _conns: () => conns };
+  return { init, readAll, write, startPolling, stop };
 }
 
 module.exports = { createModbusDriver };
