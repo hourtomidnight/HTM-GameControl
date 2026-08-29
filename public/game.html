@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>HTM Game Clock</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100vw; height: 100vh; overflow: hidden; background: #000; font-family: Arial, sans-serif; user-select: none; cursor: default; }
+    #app { position: relative; width: 100%; height: 100%; background: #000; }
+    #splash { position: absolute; inset: 0; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10; transition: opacity 0.3s; }
+    #splash.hidden { opacity: 0; pointer-events: none; }
+    #splash-text { color: #fff; font-size: 5vw; font-weight: bold; text-align: center; max-width: 90%; line-height: 1.2; white-space: pre-line; }
+    #splash-text.dim { opacity: 0.15; font-size: 3.5vw; }
+    #logo { position: absolute; top: 1.4%; left: 2.4%; max-width: 52%; max-height: 24%; opacity: 0; transition: opacity 0.3s; z-index: 5; object-fit: contain; }
+    #logo.visible { opacity: 1; }
+    #timer-area { position: absolute; top: 26%; width: 100%; display: flex; align-items: center; justify-content: center; }
+    #negative-symbol { color: #fff; font-size: 14vw; font-weight: bold; opacity: 0; line-height: 1; margin-right: 0.5vw; }
+    #timer-display { color: #fff; font-size: 20vw; font-weight: bold; line-height: 1; letter-spacing: -0.5vw; }
+    #clue-counter { position: absolute; top: 1.8%; right: 2%; color: #888; font-size: 2vw; z-index: 5; }
+    #clue-box { position: absolute; bottom: 5.5%; left: 0; width: 100%; text-align: center; color: #fff; font-size: 3vw; font-weight: bold; padding: 0 4%; line-height: 1.3; transition: opacity 0.4s; }
+    #clue-box.fading { opacity: 0; }
+    #volume-bar { position: absolute; bottom: 1.8%; right: 2%; color: #444; font-size: 1.5vw; }
+    #status { position: absolute; top: 1.8%; left: 50%; transform: translateX(-50%); color: #333; font-size: 1.5vw; letter-spacing: 4px; text-transform: uppercase; }
+    /* body class reflects render state */
+    body.running #status { color: #4a4; }
+    body.paused #status { color: #333; }
+    body.negative #timer-display, body.negative #negative-symbol { color: #e33; }
+    body.escaped #status { color: #4a4; }
+  </style>
+</head>
+<body>
+<div id="app">
+  <div id="splash"><p id="splash-text" class="dim">Please wait until you are instructed to begin.</p></div>
+  <img id="logo" src="" alt="Logo" />
+  <div id="timer-area">
+    <span id="negative-symbol">-</span>
+    <span id="timer-display">60:00</span>
+  </div>
+  <div id="status">WAITING</div>
+  <div id="clue-counter">Clues: 0</div>
+  <div id="clue-box">...</div>
+  <div id="volume-bar">Vol: 40%</div>
+</div>
+<audio id="timer-music" src="assets/TimerMusic.mp3" preload="auto" loop></audio>
+<audio id="finale-music" src="assets/FinaleMusic.mp3" preload="auto"></audio>
+<audio id="clue-audio" src="assets/ClueSound.mp3" preload="auto"></audio>
+<script src="channel.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
