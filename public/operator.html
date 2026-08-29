@@ -14,10 +14,23 @@
       height: 100vh;
       display: grid;
       grid-template-rows: auto 1fr;
-      grid-template-columns: 230px 1fr;
-      grid-template-areas: "timer timer" "ctrl hints";
+      grid-template-columns: var(--left-w, 300px) 6px 1fr;
+      grid-template-areas: "timer timer timer" "ctrl divider hints";
       overflow: hidden;
     }
+
+    /* Grid children must be allowed to shrink so the tracks honor their sizes */
+    #ctrl-panel, #hints-panel { min-width: 0; }
+
+    /* Draggable column divider */
+    #col-divider {
+      grid-area: divider;
+      background: #1e1e4a;
+      cursor: col-resize;
+      transition: background 0.12s;
+    }
+    #col-divider:hover, #col-divider.dragging { background: #3535aa; }
+    body.col-resizing { cursor: col-resize; user-select: none; }
 
     /* ── Top timer bar ── */
     #timer-panel {
@@ -197,16 +210,18 @@
     .field-row {
       display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
     }
-    .field-row label { width: 110px; color: #aaa; flex-shrink: 0; font-size: 11px; }
+    .field-row label { width: 96px; color: #aaa; flex-shrink: 0; font-size: 11px; }
     .field-row input[type="text"],
     .field-row input[type="number"],
     .field-row select,
     .field-row textarea {
       background: #0f3460; border: 1px solid #1a4a80;
       color: #fff; border-radius: 6px; padding: 5px 9px; font-size: 12px;
+      min-width: 0;
     }
     .field-row input[type="text"],
     .field-row select { flex: 1; }
+    .card { min-width: 0; }
   </style>
 </head>
 <body>
@@ -303,6 +318,9 @@
   </div>
 </div>
 
+<!-- Draggable column divider -->
+<div id="col-divider" title="Drag to resize"></div>
+
 <!-- Hints panel -->
 <div id="hints-panel">
   <div class="panel-hdr">Hints — click to display on game screen</div>
@@ -311,6 +329,45 @@
   </div>
 </div>
 
+<script>
+  // Draggable left/right column split, persisted per browser.
+  (function () {
+    var KEY = 'htm-op-left-w', MIN = 220, MAX = 640;
+    var divider = document.getElementById('col-divider');
+    function setW(px) {
+      px = Math.max(MIN, Math.min(MAX, px));
+      document.body.style.setProperty('--left-w', px + 'px');
+      return px;
+    }
+    try { var saved = parseInt(localStorage.getItem(KEY), 10); if (saved) setW(saved); } catch (e) {}
+    var dragging = false;
+    divider.addEventListener('pointerdown', function (e) {
+      dragging = true;
+      divider.classList.add('dragging');
+      document.body.classList.add('col-resizing');
+      divider.setPointerCapture(e.pointerId);
+      e.preventDefault();
+    });
+    divider.addEventListener('pointermove', function (e) {
+      if (!dragging) return;
+      setW(e.clientX);
+    });
+    function end(e) {
+      if (!dragging) return;
+      dragging = false;
+      divider.classList.remove('dragging');
+      document.body.classList.remove('col-resizing');
+      var w = parseInt(getComputedStyle(document.body).getPropertyValue('--left-w'), 10);
+      try { if (w) localStorage.setItem(KEY, String(w)); } catch (e2) {}
+    }
+    divider.addEventListener('pointerup', end);
+    divider.addEventListener('pointercancel', end);
+    divider.addEventListener('dblclick', function () {
+      document.body.style.removeProperty('--left-w');
+      try { localStorage.removeItem(KEY); } catch (e) {}
+    });
+  })();
+</script>
 <script src="channel.js"></script>
 <script src="operator.js"></script>
 </body>
