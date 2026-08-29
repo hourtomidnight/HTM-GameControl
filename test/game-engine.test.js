@@ -139,3 +139,23 @@ test('onState returns an unsubscribe function that stops further callbacks', () 
   engine.command({ type: 'resume' });
   assert.strictEqual(calls, afterFirst);
 });
+
+test('game state is mirrored onto the internal signal bus when provided', () => {
+  const { createSignalBus } = require('../src/signal-bus');
+  const { createInternalDriver } = require('../src/drivers/internal');
+  const es = createEventStore({ path: ':memory:' });
+  const gs = createGameStore(es.db);
+  const signals = [
+    { name: 'phase', direction: 'in-out', type: 'string', driver: 'internal', address: { pin: 'phase' } },
+    { name: 'timer_running', direction: 'in-out', type: 'bool', driver: 'internal', address: { pin: 'timer_running' } },
+    { name: 'game_locked', direction: 'in-out', type: 'bool', driver: 'internal', address: { pin: 'game_locked' } },
+  ];
+  const bus = createSignalBus({ eventStore: es, drivers: { internal: createInternalDriver() }, signals });
+  bus.start();
+  const engine = createGameEngine({ eventStore: es, gameStore: gs, signalBus: bus,
+    now: () => 1, setInterval: () => 0, clearInterval: () => {} });
+  engine.command({ type: 'start' });
+  assert.strictEqual(bus.get('timer_running').value, true);
+  engine.command({ type: 'escaped' });
+  assert.strictEqual(bus.get('game_locked').value, true);
+});
