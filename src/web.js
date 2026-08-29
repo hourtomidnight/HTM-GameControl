@@ -246,12 +246,6 @@ function createWebServer(deps) {
     res.writeHead(404); res.end('Not found');
   });
 
-  // A truthy port means "listen now"; port 0 / falsy leaves listening to the
-  // caller (tests call server.listen(0) themselves to grab an ephemeral port).
-  if (port) {
-    server.listen(port);
-  }
-
   function close() {
     for (const res of clients) { try { res.end(); } catch {} }
     clients.clear();
