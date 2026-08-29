@@ -1,0 +1,8 @@
+HTM-Control-Basic/
+node_modules/
+config.json
+google-credentials.json
+*.db
+*.db-wal
+*.db-shm
+.superpowers/
