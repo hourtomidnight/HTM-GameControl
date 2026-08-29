@@ -214,3 +214,14 @@ test('GET /events streams SSE and detaches listeners on close', async () => {
   assert.strictEqual(offCalled, true, 'signalBus.off called on client disconnect');
   close();
 });
+
+test('a malformed request path does not crash the server', async () => {
+  const { server, close } = boot();
+  await new Promise(r => server.listen(0, r));
+  const bad = await req(server, 'GET', '//');
+  assert.strictEqual(bad.status, 400);
+  // server still serves normal requests afterward
+  const ok = await req(server, 'GET', '/healthz');
+  assert.strictEqual(ok.status, 200);
+  close();
+});

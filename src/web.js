@@ -123,7 +123,13 @@ function createWebServer(deps) {
 
     if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
 
-    const parsed = new URL(req.url, 'http://localhost');
+    let parsed;
+    try {
+      parsed = new URL(req.url, 'http://localhost');
+    } catch {
+      res.writeHead(400); res.end('Bad request');
+      return;
+    }
     const url = parsed.pathname;
     const q = parsed.searchParams;
 
