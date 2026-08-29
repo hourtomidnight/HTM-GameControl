@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>HTM — Operator</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0d0d1a;
+      color: #e0e0e0;
+      font-family: Arial, sans-serif;
+      font-size: 13px;
+      height: 100vh;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      grid-template-columns: 230px 1fr;
+      grid-template-areas: "timer timer" "ctrl hints";
+      overflow: hidden;
+    }
+
+    /* ── Top timer bar ── */
+    #timer-panel {
+      grid-area: timer;
+      background: #12122a;
+      border-bottom: 2px solid #1e1e4a;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      padding: 10px 20px;
+      flex-wrap: wrap;
+    }
+
+    #timer-block { min-width: 220px; }
+
+    #big-timer {
+      font-size: 72px;
+      font-weight: bold;
+      font-family: Arial, sans-serif;
+      color: #fff;
+      letter-spacing: -2px;
+      line-height: 1;
+    }
+    #big-timer.negative { color: #ff4444; }
+    #big-timer.running  { color: #7fff7f; }
+    #big-timer.paused   { color: #fff; }
+    #big-timer.escaped  { color: #ffd700; }
+
+    #status-badge {
+      font-size: 11px; letter-spacing: 3px;
+      text-transform: uppercase; color: #555; margin-top: 3px;
+    }
+
+    /* adjust clusters */
+    .adj-cluster { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+    .adj-cluster label { font-size: 10px; color: #555; letter-spacing: 1px; text-transform: uppercase; }
+    .adj-row { display: flex; gap: 5px; }
+
+    button {
+      border: none; border-radius: 7px; cursor: pointer;
+      font-weight: bold; transition: filter 0.12s, transform 0.1s;
+      user-select: none;
+    }
+    button:hover  { filter: brightness(1.18); }
+    button:active { transform: scale(0.95); }
+    button:disabled { opacity: 0.3; cursor: not-allowed; filter: none; transform: none; }
+
+    .btn-adj  { width: 46px; height: 36px; font-size: 18px; background: #1e2a4a; color: #a0c4ff; }
+    .btn-main { padding: 9px 18px; font-size: 13px; font-weight: bold; }
+    .btn-start   { background: #2e7d32; color: #fff; }
+    .btn-pause   { background: #1565c0; color: #fff; }
+    .btn-escaped { background: #7b1fa2; color: #fff; }
+    .btn-reset   { background: #37474f; color: #ccc; }
+    .btn-cfg     { background: #263238; color: #90caf9; font-size: 11px; padding: 6px 12px; }
+
+    #main-btns { display: flex; flex-direction: column; gap: 7px; }
+    #main-btns .row { display: flex; gap: 7px; }
+
+    /* ── Left column ── */
+    #ctrl-panel {
+      grid-area: ctrl;
+      background: #0f0f22;
+      border-right: 2px solid #1e1e4a;
+      padding: 14px 12px;
+      display: flex; flex-direction: column; gap: 14px;
+      overflow-y: auto;
+    }
+
+    .ctrl-section h3 {
+      font-size: 10px; color: #444; text-transform: uppercase;
+      letter-spacing: 2px; margin-bottom: 9px;
+      border-bottom: 1px solid #1e1e4a; padding-bottom: 5px;
+    }
+
+    .vol-row { display: flex; align-items: center; gap: 7px; }
+    .btn-vol { width: 36px; height: 32px; font-size: 16px; background: #1a2a3a; color: #a0c4ff; }
+    #vol-display { font-size: 16px; font-weight: bold; color: #a0c4ff; min-width: 42px; text-align: center; }
+
+    #clue-count-display { font-size: 36px; font-weight: bold; color: #ffd700; text-align: center; }
+    #clue-count-label   { font-size: 10px; color: #444; text-align: center; letter-spacing: 1px; }
+
+    .btn-hide-clue {
+      width: 100%; padding: 8px; background: #2a1515; color: #ff8888;
+      font-size: 11px; margin-top: 4px; border-radius: 7px;
+    }
+
+    /* ── Right: hints panel ── */
+    #hints-panel {
+      grid-area: hints;
+      padding: 12px 14px;
+      overflow-y: auto;
+      background: #0d0d1a;
+    }
+
+    #hints-panel > .panel-hdr {
+      font-size: 10px; color: #444; text-transform: uppercase;
+      letter-spacing: 2px; margin-bottom: 10px;
+      border-bottom: 1px solid #1e1e4a; padding-bottom: 5px;
+    }
+
+    /* Groups */
+    .hint-group { margin-bottom: 14px; }
+
+    .hint-group-header {
+      font-size: 11px; font-weight: bold; color: #7fb8ff;
+      text-transform: uppercase; letter-spacing: 1px;
+      padding: 5px 8px;
+      background: #131335;
+      border-radius: 6px 6px 0 0;
+      border-bottom: 1px solid #1e2a5a;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .hint-group-header .toggle-icon { color: #445; font-size: 12px; }
+    .hint-group-header:hover { background: #181848; }
+
+    .hint-group-body { display: flex; flex-direction: column; gap: 5px; padding-top: 5px; }
+    .hint-group-body.collapsed { display: none; }
+
+    /* Individual hint buttons */
+    .hint-btn {
+      display: flex; align-items: center; gap: 8px;
+      background: #131330; border: 1px solid #1e1e4a;
+      border-radius: 7px; padding: 8px 12px;
+      text-align: left; width: 100%; color: #e0e0e0;
+      cursor: pointer; transition: background 0.12s, border-color 0.12s;
+    }
+    .hint-btn:hover  { background: #1c1c50; border-color: #3535aa; }
+    .hint-btn:active { background: #252580; }
+
+    .hint-key-badge {
+      background: #0f3460; color: #a0c4ff;
+      font-family: monospace; font-size: 10px;
+      padding: 2px 7px; border-radius: 4px;
+      min-width: 56px; text-align: center;
+      flex-shrink: 0; white-space: nowrap;
+    }
+    .hint-key-badge.no-key { background: #111; color: #333; }
+
+    .hint-text { font-size: 13px; line-height: 1.3; flex: 1; }
+
+    #no-hints-msg { color: #334; font-size: 13px; text-align: center; margin-top: 30px; }
+
+    /* ── Active hints ── */
+    #active-hints-list { display: flex; flex-direction: column; gap: 5px; }
+    .active-hint-row {
+      display: flex; align-items: flex-start; gap: 6px;
+      background: #0f2a1a; border: 1px solid #1e5a30;
+      border-radius: 7px; padding: 7px 10px;
+    }
+    .active-hint-text { flex: 1; font-size: 12px; color: #aaffbb; line-height: 1.3; word-break: break-word; }
+    .btn-dismiss-hint {
+      background: #3a1515; color: #ff8888; border: none; border-radius: 5px;
+      padding: 2px 7px; font-size: 11px; cursor: pointer; flex-shrink: 0;
+      font-weight: bold; line-height: 1.6;
+    }
+    .btn-dismiss-hint:hover { background: #5a2020; }
+    #no-active-hints { color: #334; font-size: 12px; text-align: center; padding: 6px 0; }
+
+    .btn-reopen-game {
+      width: 100%; padding: 6px; background: #1a2a3a; color: #7fb8ff;
+      font-size: 11px; border-radius: 7px; margin-top: 4px;
+    }
+
+    /* ── Session Info card ── */
+    .card {
+      background: #16213e;
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin-bottom: 4px;
+    }
+    .card h2 {
+      font-size: 11px; color: #a0c4ff; text-transform: uppercase;
+      letter-spacing: 2px; margin-bottom: 10px;
+      border-bottom: 1px solid #0f3460; padding-bottom: 6px;
+    }
+    .field-row {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+    }
+    .field-row label { width: 110px; color: #aaa; flex-shrink: 0; font-size: 11px; }
+    .field-row input[type="text"],
+    .field-row input[type="number"],
+    .field-row select,
+    .field-row textarea {
+      background: #0f3460; border: 1px solid #1a4a80;
+      color: #fff; border-radius: 6px; padding: 5px 9px; font-size: 12px;
+    }
+    .field-row input[type="text"],
+    .field-row select { flex: 1; }
+  </style>
+</head>
+<body>
+
+<!-- Timer bar -->
+<div id="timer-panel">
+  <div id="timer-block">
+    <div id="big-timer">60:00</div>
+    <div id="status-badge">WAITING</div>
+  </div>
+
+  <div class="adj-cluster">
+    <label>Minute</label>
+    <div class="adj-row">
+      <button class="btn-adj" id="add-min">+</button>
+      <button class="btn-adj" id="sub-min">−</button>
+    </div>
+  </div>
+
+  <div class="adj-cluster">
+    <label>Second</label>
+    <div class="adj-row">
+      <button class="btn-adj" id="add-sec">+</button>
+      <button class="btn-adj" id="sub-sec">−</button>
+    </div>
+  </div>
+
+  <div id="main-btns">
+    <div class="row">
+      <button class="btn-main btn-start"   id="btn-start">▶ Start</button>
+      <button class="btn-main btn-pause"   id="btn-pause">⏸ Pause</button>
+    </div>
+    <div class="row">
+      <button class="btn-main btn-escaped" id="btn-escaped">🏁 Escaped</button>
+      <button class="btn-main btn-reset"   id="btn-reset">↺ Reset</button>
+    </div>
+  </div>
+
+  <button class="btn-cfg" id="btn-cfg" style="margin-left:auto;align-self:flex-start;">⚙ Config</button>
+</div>
+
+<!-- Left controls -->
+<div id="ctrl-panel">
+  <div class="card" id="session-info-card">
+    <h2>Session Info</h2>
+    <div class="field-row">
+      <label>Team name</label>
+      <input type="text" id="team-name-input" placeholder="Team name" />
+    </div>
+    <div class="field-row">
+      <label>Operator</label>
+      <select id="operator-select"><option value="">— select —</option></select>
+    </div>
+    <div class="field-row">
+      <label>New players</label>
+      <input type="number" id="new-players-input" min="0" value="0" style="width:60px;" />
+    </div>
+    <div class="field-row">
+      <label>Experienced players</label>
+      <input type="number" id="experienced-players-input" min="0" value="0" style="width:60px;" />
+    </div>
+    <div class="field-row">
+      <label>Notes</label>
+      <textarea id="notes-input" rows="3" style="flex:1;background:#0f3460;border:1px solid #1a4a80;color:#fff;border-radius:6px;padding:5px 9px;"></textarea>
+    </div>
+  </div>
+
+  <div class="ctrl-section">
+    <h3>Volume</h3>
+    <div class="vol-row">
+      <button class="btn-vol" id="vol-down">−</button>
+      <div id="vol-display">40%</div>
+      <button class="btn-vol" id="vol-up">+</button>
+    </div>
+  </div>
+
+  <div class="ctrl-section">
+    <h3>Hints Given</h3>
+    <div id="clue-count-display">0</div>
+    <div id="clue-count-label">USED</div>
+  </div>
+
+  <div class="ctrl-section">
+    <h3>Active on Screen</h3>
+    <div id="active-hints-list">
+      <div id="no-active-hints">None</div>
+    </div>
+    <button class="btn-hide-clue" id="btn-hide-clue" style="margin-top:8px;">✕ Dismiss All</button>
+  </div>
+
+  <div class="ctrl-section">
+    <h3>Game Screen</h3>
+    <button class="btn-reopen-game" id="btn-reopen-game">↗ Reopen Game Window</button>
+  </div>
+</div>
+
+<!-- Hints panel -->
+<div id="hints-panel">
+  <div class="panel-hdr">Hints — click to display on game screen</div>
+  <div id="hints-list">
+    <div id="no-hints-msg">No hints configured. Open ⚙ Config to add hint groups.</div>
+  </div>
+</div>
+
+<script src="channel.js"></script>
+<script src="operator.js"></script>
+</body>
+</html>

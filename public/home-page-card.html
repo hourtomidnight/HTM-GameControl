@@ -1,0 +1,94 @@
+<!--
+  HTM Room Control card — paste this into your intranet home page
+  where you want the link to appear.
+
+  The live timer badge requires the SSE endpoint to be proxied at /events
+  (done by nginx-htm.conf). If you prefer a static link without the live
+  badge, just remove the <script> block at the bottom.
+-->
+
+<style>
+  /* Scoped to .htm-card only — safe to paste alongside other styles */
+  .htm-card {
+    display: inline-flex;
+    flex-direction: column;
+    gap: 8px;
+    background: #0f1a35;
+    border: 1px solid #1e2d55;
+    border-radius: 14px;
+    padding: 20px 22px;
+    text-decoration: none;
+    color: #e0e0e0;
+    font-family: Arial, sans-serif;
+    min-width: 220px;
+    max-width: 280px;
+    transition: border-color 0.15s, transform 0.1s, background 0.15s;
+    cursor: pointer;
+    vertical-align: top;
+  }
+  .htm-card:hover { background: #141f40; border-color: #2e4a8a; transform: translateY(-2px); }
+
+  .htm-card-top    { display: flex; align-items: center; gap: 10px; }
+  .htm-card-icon   { font-size: 28px; line-height: 1; }
+  .htm-card-title  { font-size: 15px; font-weight: bold; color: #fff; }
+  .htm-card-badge  { font-size: 10px; color: #7a6a10; background: #1a1500;
+                     border: 1px solid #3a3000; border-radius: 4px;
+                     padding: 1px 6px; display: inline-block; }
+  .htm-card-desc   { font-size: 12px; color: #556; line-height: 1.4; }
+  .htm-card-status { display: flex; align-items: center; gap: 6px;
+                     font-size: 11px; color: #445; margin-top: 2px; }
+  .htm-dot { width: 7px; height: 7px; border-radius: 50%; background: #222;
+             transition: background 0.3s; flex-shrink: 0; }
+  .htm-dot.live { background: #4caf50; box-shadow: 0 0 5px #4caf50; }
+  .htm-timer { font-family: monospace; font-size: 12px; color: #555; }
+  .htm-timer.running  { color: #7fff7f; }
+  .htm-timer.negative { color: #ff5555; }
+  .htm-timer.escaped  { color: #ffd700; }
+</style>
+
+<a class="htm-card" href="/room-control/">
+  <div class="htm-card-top">
+    <span class="htm-card-icon">⏱</span>
+    <div>
+      <div class="htm-card-title">Room Control / Timer</div>
+      <span class="htm-card-badge">prototype</span>
+    </div>
+  </div>
+  <div class="htm-card-desc">Escape room game clock — operator panel, player screen, hint delivery.</div>
+  <div class="htm-card-status">
+    <span class="htm-dot" id="htm-dot"></span>
+    <span id="htm-status">Connecting…</span>
+    &nbsp;·&nbsp;
+    <span class="htm-timer" id="htm-timer">––:––</span>
+  </div>
+</a>
+
+<script>
+(function() {
+  var dot    = document.getElementById('htm-dot');
+  var status = document.getElementById('htm-status');
+  var timer  = document.getElementById('htm-timer');
+  function pad(n) { return n < 10 ? '0' + n : '' + n; }
+
+  var es = new EventSource('/events');
+  es.onopen  = function() { dot.classList.add('live'); status.textContent = 'Online'; };
+  es.onerror = function() {
+    dot.classList.remove('live');
+    status.textContent = 'Offline';
+    timer.className = 'htm-timer';
+    timer.textContent = '––:––';
+  };
+  es.onmessage = function(e) {
+    try {
+      var d = JSON.parse(e.data);
+      if (d.type !== 'state') return;
+      timer.textContent = (d.clockForward ? '−' : '') + pad(d.currentMin) + ':' + pad(d.currentSec);
+      timer.className = 'htm-timer' +
+        (d.gameLocked ? ' escaped' : d.clockForward ? ' negative' : !d.timerHasStopped ? ' running' : '');
+      status.textContent = d.gameLocked ? 'Escaped!' :
+        (!d.onSplash && !d.timerHasStopped) ? 'Running' :
+        d.onSplash ? 'Waiting' : 'Paused';
+    } catch(err) {}
+  };
+})();
+</script>

@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Room Control / Timer (prototype)</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      background: #0a0a1a;
+      color: #e0e0e0;
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    /* ── Hero ── */
+    .hero { text-align: center; margin-bottom: 48px; }
+
+    .clock-icon {
+      font-size: 72px;
+      line-height: 1;
+      margin-bottom: 16px;
+      display: block;
+    }
+
+    h1 {
+      font-size: clamp(28px, 5vw, 48px);
+      font-weight: bold;
+      color: #fff;
+      letter-spacing: -1px;
+    }
+
+    .tagline {
+      margin-top: 8px;
+      color: #555;
+      font-size: 14px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+    }
+
+    /* ── Live status pill ── */
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      margin-top: 20px;
+      background: #0f1a30;
+      border: 1px solid #1e2d55;
+      border-radius: 999px;
+      padding: 6px 14px;
+      font-size: 12px;
+      color: #667;
+    }
+    .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #333;
+      transition: background 0.3s;
+    }
+    .dot.live { background: #4caf50; box-shadow: 0 0 6px #4caf50; }
+
+    #live-timer {
+      font-family: monospace;
+      font-size: 13px;
+      color: #aaa;
+      min-width: 60px;
+    }
+    #live-timer.running  { color: #7fff7f; }
+    #live-timer.negative { color: #ff5555; }
+    #live-timer.escaped  { color: #ffd700; }
+
+    /* ── Cards ── */
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      width: 100%;
+      max-width: 800px;
+      margin-bottom: 32px;
+    }
+
+    .card {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 10px;
+      background: #0f1a35;
+      border: 1px solid #1e2d55;
+      border-radius: 14px;
+      padding: 22px 24px;
+      text-decoration: none;
+      color: inherit;
+      transition: border-color 0.15s, transform 0.1s, background 0.15s;
+      cursor: pointer;
+    }
+    .card:hover  { background: #141f40; border-color: #2e4a8a; transform: translateY(-2px); }
+    .card:active { transform: translateY(0); }
+
+    .card-icon { font-size: 32px; line-height: 1; }
+
+    .card-title {
+      font-size: 16px; font-weight: bold; color: #fff;
+    }
+    .card-desc {
+      font-size: 12px; color: #556; line-height: 1.4;
+    }
+
+    .card-arrow {
+      margin-top: auto;
+      font-size: 18px;
+      color: #2e4a8a;
+    }
+    .card:hover .card-arrow { color: #5080d0; }
+
+    /* Accent colours per card */
+    .card.operator { border-color: #1e3a6e; }
+    .card.operator:hover { border-color: #2e6abf; }
+    .card.game     { border-color: #1a3a1a; }
+    .card.game:hover { border-color: #2e7d32; }
+    .card.config   { border-color: #2a2a1a; }
+    .card.config:hover { border-color: #7a6a10; }
+
+    /* ── Footer ── */
+    .back-link {
+      position: fixed; top: 14px; left: 18px;
+      color: #445; font-size: 12px; text-decoration: none;
+      letter-spacing: 1px;
+    }
+    .back-link:hover { color: #7fb8ff; }
+
+    footer {
+      color: #333;
+      font-size: 11px;
+      letter-spacing: 1px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+<a class="back-link" href="/">← Home</a>
+
+<div class="hero">
+  <span class="clock-icon">⏱</span>
+  <h1>Room Control / Timer</h1>
+  <p class="tagline">Escape Room Control System &nbsp;·&nbsp; prototype</p>
+
+  <div class="status-pill">
+    <span class="dot" id="conn-dot"></span>
+    <span id="conn-label">Connecting…</span>
+    &nbsp;|&nbsp;
+    <span id="live-timer">––:––</span>
+  </div>
+</div>
+
+<div class="cards">
+  <a class="card operator" href="/operator.html">
+    <span class="card-icon">🎮</span>
+    <div class="card-title">Operator Panel</div>
+    <div class="card-desc">Control the timer, send hints, and manage the game from any device.</div>
+    <span class="card-arrow">→</span>
+  </a>
+
+  <a class="card game" href="/game.html" target="_blank">
+    <span class="card-icon">📺</span>
+    <div class="card-title">Game Screen</div>
+    <div class="card-desc">Full-screen display for players. Usually opened automatically by the operator.</div>
+    <span class="card-arrow">↗</span>
+  </a>
+
+  <a class="card config" href="/config.html">
+    <span class="card-icon">⚙️</span>
+    <div class="card-title">Configuration</div>
+    <div class="card-desc">Set timer duration, hint groups, keyboard shortcuts, and audio volume.</div>
+    <span class="card-arrow">→</span>
+  </a>
+</div>
+
+<footer>HTM ESCAPE ROOM SYSTEM &nbsp;·&nbsp; <a href="/" style="color:#334;text-decoration:none;">http://hourtomidnight</a></footer>
+
+<script>
+  const dot       = document.getElementById('conn-dot');
+  const connLabel = document.getElementById('conn-label');
+  const timerEl   = document.getElementById('live-timer');
+
+  function pad(n) { return n < 10 ? '0' + n : '' + n; }
+
+  const es = new EventSource('/events');
+
+  es.onopen = () => {
+    dot.classList.add('live');
+    connLabel.textContent = 'Server live';
+  };
+
+  es.onerror = () => {
+    dot.classList.remove('live');
+    connLabel.textContent = 'Reconnecting…';
+    timerEl.className = '';
+    timerEl.textContent = '––:––';
+  };
+
+  es.onmessage = (e) => {
+    try {
+      const d = JSON.parse(e.data);
+      if (d.type !== 'state') return;
+
+      const prefix = d.clockForward ? '−' : '';
+      timerEl.textContent = prefix + pad(d.currentMin) + ':' + pad(d.currentSec);
+
+      timerEl.className = '';
+      if (d.gameLocked)            timerEl.classList.add('escaped');
+      else if (d.clockForward)     timerEl.classList.add('negative');
+      else if (!d.timerHasStopped) timerEl.classList.add('running');
+
+      const states = { true: { true: 'Game locked', false: 'Running' }, false: { true: 'Waiting', false: 'Paused' } };
+      connLabel.textContent = d.gameLocked ? 'Escaped!' :
+        (!d.onSplash && !d.timerHasStopped) ? 'Running' :
+        d.onSplash ? 'Waiting' : 'Paused';
+    } catch(err) {}
+  };
+</script>
+</body>
+</html>

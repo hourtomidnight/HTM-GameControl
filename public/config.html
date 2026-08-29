@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>HTM Game Clock — Configuration</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #1a1a2e;
+      color: #e0e0e0;
+      font-family: Arial, sans-serif;
+      font-size: 14px;
+      padding: 24px 28px 40px;
+      min-height: 100vh;
+    }
+
+    h1 { font-size: 24px; color: #fff; margin-bottom: 4px; }
+    .subtitle { color: #666; font-size: 12px; margin-bottom: 24px; }
+
+    /* ── Sections ── */
+    .card {
+      background: #16213e;
+      border-radius: 10px;
+      padding: 18px 22px;
+      margin-bottom: 18px;
+    }
+    .card h2 {
+      font-size: 12px; color: #a0c4ff; text-transform: uppercase;
+      letter-spacing: 2px; margin-bottom: 14px;
+      border-bottom: 1px solid #0f3460; padding-bottom: 7px;
+    }
+
+    .field-row {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
+    }
+    .field-row label { width: 150px; color: #aaa; flex-shrink: 0; }
+
+    input[type="number"], input[type="text"], input[type="range"] {
+      background: #0f3460; border: 1px solid #1a4a80;
+      color: #fff; border-radius: 6px; padding: 5px 9px; font-size: 14px;
+    }
+    input[type="number"] { width: 80px; }
+    input[type="text"]   { flex: 1; }
+    input[type="range"]  { width: 160px; accent-color: #a0c4ff; }
+    .vol-val { color: #a0c4ff; font-weight: bold; width: 38px; }
+
+    /* ── Groups editor ── */
+    #groups-container { display: flex; flex-direction: column; gap: 14px; }
+
+    .group-card {
+      background: #0f1a35;
+      border: 1px solid #1e2d55;
+      border-radius: 9px;
+      overflow: hidden;
+    }
+    .group-header {
+      display: flex; align-items: center; gap: 8px;
+      background: #1a2a50; padding: 10px 14px;
+    }
+    .group-name {
+      flex: 1; background: #0d1f40; border: 1px solid #1e3a6e;
+      color: #fff; border-radius: 6px; padding: 5px 9px; font-size: 14px;
+      font-weight: bold;
+    }
+    .group-name::placeholder { color: #445; }
+
+    .group-body { padding: 10px 14px 12px; }
+
+    /* ── Hints ── */
+    .hints-list { display: flex; flex-direction: column; gap: 7px; margin-bottom: 10px; }
+
+    .hint-row {
+      display: flex; align-items: center; gap: 8px;
+    }
+    .hint-text-input {
+      flex: 1; background: #0f3460; border: 1px solid #1a4a80;
+      color: #fff; border-radius: 6px; padding: 5px 9px; font-size: 13px;
+    }
+    .hint-text-input::placeholder { color: #445; }
+
+    /* Key capture field */
+    .key-capture {
+      width: 110px; flex-shrink: 0;
+      background: #0a1a30; border: 1px solid #1a3a60;
+      color: #a0c4ff; border-radius: 6px; padding: 5px 8px;
+      font-size: 12px; font-family: monospace; text-align: center;
+      cursor: pointer; user-select: none; transition: border-color 0.15s;
+    }
+    .key-capture:focus { outline: none; border-color: #4a8aff; background: #0d2540; }
+    .key-capture.capturing { border-color: #ffd700; color: #ffd700; background: #1a1500; }
+    .key-capture.has-key  { border-color: #2a6a4a; color: #7fff7f; background: #0a1a0f; }
+
+    /* Buttons */
+    button {
+      border: none; border-radius: 7px; cursor: pointer; font-weight: bold;
+      font-size: 12px; transition: filter 0.15s, transform 0.1s;
+      user-select: none; white-space: nowrap;
+    }
+    button:hover  { filter: brightness(1.2); }
+    button:active { transform: scale(0.96); }
+
+    .btn-icon { width: 30px; height: 30px; font-size: 15px; display: flex; align-items: center; justify-content: center; }
+    .btn-del-hint  { background: #3a1515; color: #ff7777; }
+    .btn-del-group { background: #3a1515; color: #ff7777; padding: 5px 10px; }
+    .btn-add-hint  { background: #0f3040; color: #7fb8ff; padding: 6px 12px; margin-top: 2px; font-size: 12px; }
+    .btn-add-group { background: #1a3a5e; color: #a0c4ff; padding: 9px 18px; font-size: 13px; }
+    .btn-save  { background: #2e7d32; color: #fff; padding: 11px 28px; font-size: 14px; }
+    .btn-reset { background: #424242; color: #ccc; padding: 11px 20px; font-size: 14px; }
+
+    .bottom-bar {
+      display: flex; gap: 10px; align-items: center; margin-top: 20px;
+    }
+    #status-msg { color: #4caf50; font-size: 13px; }
+
+    /* Logo preview */
+    .logo-preview { max-height: 70px; margin-top: 8px; border-radius: 4px; display: none; }
+
+    /* Keyboard reference */
+    .kbd-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .kbd-table td { padding: 4px 10px; border-bottom: 1px solid #0f3460; color: #aaa; }
+    .kbd-table td:first-child { color: #a0c4ff; font-family: monospace; }
+  </style>
+</head>
+<body>
+
+<h1>HTM Game Clock</h1>
+<p class="subtitle">Configuration — save to apply changes</p>
+
+<!-- Timer settings -->
+<div class="card">
+  <h2>Timer</h2>
+  <div class="field-row">
+    <label>Starting minutes</label>
+    <input type="number" id="timer-minutes" min="1" max="999" value="60" />
+  </div>
+  <div class="field-row">
+    <label>Start volume</label>
+    <input type="range" id="volume" min="0" max="100" value="40" />
+    <span class="vol-val" id="vol-display">40%</span>
+  </div>
+  <div class="field-row">
+    <label style="line-height:1.3;">Hint cycle speed
+      <div style="color:#555;font-size:11px;margin-top:2px;">Seconds between hints when<br>multiple are on screen.</div>
+    </label>
+    <input type="number" id="hint-cycle-seconds" min="1" max="60" value="5" />
+    <span style="color:#666;font-size:12px;">sec</span>
+  </div>
+  <div class="field-row" style="margin-top:10px;padding-top:10px;border-top:1px solid #0f3460;">
+    <label style="line-height:1.3;">Intro media
+      <div style="color:#555;font-size:11px;margin-top:2px;">Video or audio file in assets/,<br>played on Start before the timer begins.<br>Leave empty to skip.</div>
+    </label>
+    <input type="text" id="intro-media-path" placeholder="e.g. intro.mp4 or intro.mp3 — empty for none" />
+  </div>
+  <div class="field-row" style="margin-top:10px;padding-top:10px;border-top:1px solid #0f3460;">
+    <label style="line-height:1.3;">Start / Stop key
+      <div style="color:#555;font-size:11px;margin-top:2px;">Press 1× to start, press again to stop.<br>Locked until room is reset.</div>
+    </label>
+    <div id="start-stop-key-capture" class="key-capture" tabindex="0">click to assign</div>
+  </div>
+</div>
+
+<!-- Game Sheets -->
+<div class="card">
+  <h2>Game Sheets</h2>
+  <div class="field-row">
+    <label>Room name</label>
+    <input type="text" id="room-name" placeholder="e.g. Nibiru" />
+  </div>
+  <div class="field-row" style="margin-top:10px;padding-top:10px;border-top:1px solid #0f3460;">
+    <label>Sessions spreadsheet ID</label>
+    <input type="text" id="sessions-spreadsheet-id" placeholder="Google Sheet ID" />
+  </div>
+  <div class="field-row">
+    <label>Sessions tab name</label>
+    <input type="text" id="sessions-tab-name" placeholder="e.g. Sessions" />
+  </div>
+  <div class="field-row" style="margin-top:10px;padding-top:10px;border-top:1px solid #0f3460;">
+    <label>Hints spreadsheet ID</label>
+    <input type="text" id="hints-spreadsheet-id" placeholder="Google Sheet ID" />
+  </div>
+  <div class="field-row">
+    <label>Hints tab name</label>
+    <input type="text" id="hints-tab-name" placeholder="e.g. Nibiru-Hints" />
+  </div>
+  <div class="field-row">
+    <label>Hotkeys tab name</label>
+    <input type="text" id="hotkeys-tab-name" placeholder="e.g. Hotkeys" />
+  </div>
+  <div class="field-row" style="margin-top:10px;padding-top:10px;border-top:1px solid #0f3460;">
+    <label>Operators spreadsheet ID</label>
+    <input type="text" id="operators-spreadsheet-id" placeholder="Tracker's spreadsheet ID (Drop Down options tab)" />
+  </div>
+</div>
+
+<!-- Logo -->
+<div class="card">
+  <h2>Logo Image</h2>
+  <div class="field-row">
+    <label>Image URL / path</label>
+    <input type="text" id="logo-path" placeholder="http://… or assets/logo.png — leave empty for none" />
+  </div>
+  <img id="logo-preview" class="logo-preview" alt="" />
+</div>
+
+<!-- Hint groups -->
+<div class="card">
+  <h2>Hint Groups &amp; Hints</h2>
+  <p style="color:#666;font-size:12px;margin-bottom:14px;">
+    Click a key field and press any key to assign a shortcut. Click again to change, right-click to clear.
+    Groups and hints can be reordered by dragging (coming soon).
+  </p>
+  <div id="groups-container"></div>
+  <button class="btn-add-group" id="btn-add-group" style="margin-top:12px;">+ Add Group</button>
+</div>
+
+<!-- Keyboard reference -->
+<div class="card">
+  <h2>Timer Keyboard Reference</h2>
+  <table class="kbd-table">
+    <tr><td>Start/Stop key</td><td>1st press = Start timer. 2nd press = Stop permanently. Locked until reset.</td></tr>
+    <tr><td>Click / Space</td><td>Same as Start/Stop key (click on game screen)</td></tr>
+    <tr><td>Pause/Break</td><td>Pause / Resume timer silently (no Escaped screen)</td></tr>
+    <tr><td>Scroll Lock or `</td><td>Return to waiting splash &amp; reset room</td></tr>
+    <tr><td>Numpad + / −</td><td>Volume up / down</td></tr>
+    <tr><td>Numpad 0 or /</td><td>Hide hint on game screen</td></tr>
+    <tr><td>F11</td><td>Toggle fullscreen on game screen</td></tr>
+  </table>
+</div>
+
+<div class="bottom-bar">
+  <button class="btn-save"  id="save-btn">Save</button>
+  <button class="btn-reset" id="reset-btn">Reset to Defaults</button>
+  <span id="status-msg"></span>
+</div>
+
+<script>
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function loadConfig() {
+  try { return JSON.parse(sessionStorage.getItem('htm-config') || localStorage.getItem('htm-config')) || {}; } catch(e) { return {}; }
+}
+
+async function fetchConfig() {
+  try {
+    const r = await fetch('/config');
+    if (r.ok) {
+      const cfg = await r.json();
+      const json = JSON.stringify(cfg);
+      sessionStorage.setItem('htm-config', json);
+      localStorage.setItem('htm-config', json);
+      return cfg;
+    }
+  } catch(e) {}
+  return loadConfig();
+}
+
+async function saveConfig(cfg) {
+  const json = JSON.stringify(cfg);
+  sessionStorage.setItem('htm-config', json);
+  localStorage.setItem('htm-config', json);
+  try {
+    await fetch('/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: json });
+  } catch(e) {}
+}
+
+// Format a KeyboardEvent into a readable string
+function formatKey(e) {
+  const mods = [];
+  if (e.ctrlKey)  mods.push('Ctrl');
+  if (e.altKey)   mods.push('Alt');
+  if (e.shiftKey && e.key.length > 1) mods.push('Shift'); // skip Shift for simple chars
+  let k = e.key;
+  if (k === ' ') k = 'Space';
+  // Normalize numpad
+  if (e.code && e.code.startsWith('Numpad')) k = e.code.replace('Numpad','Num');
+  mods.push(k);
+  return mods.join('+');
+}
+
+// ── Group / Hint DOM builders ─────────────────────────────────────────────────
+let groupIdCounter = 0;
+
+function makeKeyCapture(initialKey) {
+  const el = document.createElement('div');
+  el.className = 'key-capture' + (initialKey ? ' has-key' : '');
+  el.tabIndex = 0;
+  el.textContent = initialKey || 'click to assign';
+  el.dataset.key = initialKey || '';
+
+  el.addEventListener('click', () => {
+    el.classList.add('capturing');
+    el.classList.remove('has-key');
+    el.textContent = '… press key …';
+    el.dataset.key = '';
+    el.focus();
+  });
+
+  el.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    el.dataset.key = '';
+    el.textContent = 'click to assign';
+    el.className = 'key-capture';
+  });
+
+  el.addEventListener('keydown', (e) => {
+    if (!el.classList.contains('capturing')) return;
+    e.preventDefault();
+    e.stopPropagation();
+    // Ignore bare modifier keys
+    if (['Control','Alt','Shift','Meta'].includes(e.key)) return;
+    const keyStr = formatKey(e);
+    el.dataset.key = keyStr;
+    el.textContent = keyStr;
+    el.className = 'key-capture has-key';
+  });
+
+  el.addEventListener('blur', () => {
+    if (el.classList.contains('capturing')) {
+      el.classList.remove('capturing');
+      el.textContent = el.dataset.key || 'click to assign';
+      if (el.dataset.key) el.classList.add('has-key');
+    }
+  });
+
+  return el;
+}
+
+function makeHintRow(text, key) {
+  const row = document.createElement('div');
+  row.className = 'hint-row';
+
+  const textInput = document.createElement('input');
+  textInput.type = 'text';
+  textInput.className = 'hint-text-input';
+  textInput.placeholder = 'Hint text…';
+  textInput.value = text || '';
+
+  const keyEl = makeKeyCapture(key || '');
+
+  const delBtn = document.createElement('button');
+  delBtn.className = 'btn-icon btn-del-hint';
+  delBtn.title = 'Delete hint';
+  delBtn.textContent = '✕';
+  delBtn.addEventListener('click', () => row.remove());
+
+  row.appendChild(textInput);
+  row.appendChild(keyEl);
+  row.appendChild(delBtn);
+  return row;
+}
+
+function makeGroupCard(groupData) {
+  const id = ++groupIdCounter;
+  const card = document.createElement('div');
+  card.className = 'group-card';
+
+  // Header
+  const header = document.createElement('div');
+  header.className = 'group-header';
+
+  const nameInput = document.createElement('input');
+  nameInput.type = 'text';
+  nameInput.className = 'group-name';
+  nameInput.placeholder = 'Group name (e.g. Room 1 — Kitchen)';
+  nameInput.value = groupData.name || '';
+
+  const delGroupBtn = document.createElement('button');
+  delGroupBtn.className = 'btn-del-group';
+  delGroupBtn.textContent = '✕ Delete Group';
+  delGroupBtn.addEventListener('click', () => {
+    if (confirm('Delete this group and all its hints?')) card.remove();
+  });
+
+  header.appendChild(nameInput);
+  header.appendChild(delGroupBtn);
+
+  // Body
+  const body = document.createElement('div');
+  body.className = 'group-body';
+
+  const hintsList = document.createElement('div');
+  hintsList.className = 'hints-list';
+
+  (groupData.hints || []).forEach(h => {
+    hintsList.appendChild(makeHintRow(h.text, h.key));
+  });
+
+  const addHintBtn = document.createElement('button');
+  addHintBtn.className = 'btn-add-hint';
+  addHintBtn.textContent = '+ Add Hint';
+  addHintBtn.addEventListener('click', () => {
+    hintsList.appendChild(makeHintRow('', ''));
+  });
+
+  body.appendChild(hintsList);
+  body.appendChild(addHintBtn);
+
+  card.appendChild(header);
+  card.appendChild(body);
+  return card;
+}
+
+// ── Read groups back from DOM ─────────────────────────────────────────────────
+function readGroupsFromDOM() {
+  const groups = [];
+  document.querySelectorAll('.group-card').forEach(card => {
+    const name = card.querySelector('.group-name').value.trim();
+    const hints = [];
+    card.querySelectorAll('.hint-row').forEach(row => {
+      const text = row.querySelector('.hint-text-input').value.trim();
+      const key  = row.querySelector('.key-capture').dataset.key || '';
+      if (text) hints.push({ text, key });
+    });
+    if (name || hints.length) groups.push({ name, hints });
+  });
+  return groups;
+}
+
+// ── Shared DOM refs ───────────────────────────────────────────────────────────
+const volSlider        = document.getElementById('volume');
+const volDisplay       = document.getElementById('vol-display');
+const logoPathEl       = document.getElementById('logo-path');
+const logoPreview      = document.getElementById('logo-preview');
+const startStopCapture = document.getElementById('start-stop-key-capture');
+const container        = document.getElementById('groups-container');
+
+volSlider.addEventListener('input', () => volDisplay.textContent = volSlider.value + '%');
+logoPathEl.addEventListener('input', () => {
+  const p = logoPathEl.value.trim();
+  if (p) { logoPreview.src = p; logoPreview.style.display = 'block'; }
+  else   { logoPreview.style.display = 'none'; }
+});
+
+// ── Start/Stop key capture ────────────────────────────────────────────────────
+startStopCapture.addEventListener('click', () => {
+  startStopCapture.classList.add('capturing');
+  startStopCapture.classList.remove('has-key');
+  startStopCapture.textContent = '… press key …';
+  startStopCapture.dataset.key = '';
+  startStopCapture.focus();
+});
+startStopCapture.addEventListener('contextmenu', (e) => {
+  e.preventDefault();
+  startStopCapture.dataset.key = '';
+  startStopCapture.textContent = 'click to assign';
+  startStopCapture.className = 'key-capture';
+});
+startStopCapture.addEventListener('keydown', (e) => {
+  if (!startStopCapture.classList.contains('capturing')) return;
+  e.preventDefault(); e.stopPropagation();
+  if (['Control','Alt','Shift','Meta'].includes(e.key)) return;
+  const keyStr = formatKey(e);
+  startStopCapture.dataset.key = keyStr;
+  startStopCapture.textContent = keyStr;
+  startStopCapture.className = 'key-capture has-key';
+});
+startStopCapture.addEventListener('blur', () => {
+  if (startStopCapture.classList.contains('capturing')) {
+    startStopCapture.classList.remove('capturing');
+    startStopCapture.textContent = startStopCapture.dataset.key || 'click to assign';
+    if (startStopCapture.dataset.key) startStopCapture.classList.add('has-key');
+  }
+});
+
+document.getElementById('btn-add-group').addEventListener('click', () => {
+  container.appendChild(makeGroupCard({ name: '', hints: [] }));
+});
+
+// ── Populate form from config object ─────────────────────────────────────────
+function populateForm(cfg) {
+  document.getElementById('timer-minutes').value = cfg.timerMinutes || 60;
+  document.getElementById('hint-cycle-seconds').value = cfg.hintCycleSeconds || 5;
+  volSlider.value = Math.round((cfg.volume || 0.4) * 100);
+  volDisplay.textContent = volSlider.value + '%';
+  logoPathEl.value = cfg.logoPath || '';
+  if (cfg.logoPath) { logoPreview.src = cfg.logoPath; logoPreview.style.display = 'block'; }
+  else              { logoPreview.style.display = 'none'; }
+
+  document.getElementById('intro-media-path').value = cfg.introMediaPath || '';
+
+  document.getElementById('room-name').value = cfg.roomName || '';
+  document.getElementById('sessions-spreadsheet-id').value = cfg.sessionsSpreadsheetId || '';
+  document.getElementById('sessions-tab-name').value = cfg.sessionsTabName || '';
+  document.getElementById('hints-spreadsheet-id').value = cfg.hintsSpreadsheetId || '';
+  document.getElementById('hints-tab-name').value = cfg.hintsTabName || '';
+  document.getElementById('hotkeys-tab-name').value = cfg.hotkeysTabName || '';
+  document.getElementById('operators-spreadsheet-id').value = cfg.operatorsSpreadsheetId || '';
+
+  const key = cfg.startStopKey || '';
+  startStopCapture.dataset.key = key;
+  startStopCapture.textContent = key || 'click to assign';
+  startStopCapture.className = 'key-capture' + (key ? ' has-key' : '');
+
+  container.innerHTML = '';
+  const groups = cfg.hintGroups || [];
+  if (groups.length === 0) container.appendChild(makeGroupCard({ name: 'Hints', hints: [] }));
+  else groups.forEach(g => container.appendChild(makeGroupCard(g)));
+}
+
+// ── Save ──────────────────────────────────────────────────────────────────────
+document.getElementById('save-btn').addEventListener('click', async () => {
+  const saved = {
+    timerMinutes:     parseInt(document.getElementById('timer-minutes').value) || 60,
+    hintCycleSeconds: parseInt(document.getElementById('hint-cycle-seconds').value) || 5,
+    volume:           parseInt(volSlider.value) / 100,
+    logoPath:         logoPathEl.value.trim(),
+    introMediaPath:   document.getElementById('intro-media-path').value.trim(),
+    startStopKey:     startStopCapture.dataset.key || '',
+    hintGroups:       readGroupsFromDOM(),
+    roomName:                document.getElementById('room-name').value.trim(),
+    sessionsSpreadsheetId:   document.getElementById('sessions-spreadsheet-id').value.trim(),
+    sessionsTabName:         document.getElementById('sessions-tab-name').value.trim(),
+    hintsSpreadsheetId:      document.getElementById('hints-spreadsheet-id').value.trim(),
+    hintsTabName:            document.getElementById('hints-tab-name').value.trim(),
+    hotkeysTabName:          document.getElementById('hotkeys-tab-name').value.trim(),
+    operatorsSpreadsheetId:  document.getElementById('operators-spreadsheet-id').value.trim(),
+  };
+  await saveConfig(saved);
+  document.getElementById('status-msg').textContent = '✓ Saved!';
+  setTimeout(() => document.getElementById('status-msg').textContent = '', 2000);
+});
+
+// ── Reset ─────────────────────────────────────────────────────────────────────
+document.getElementById('reset-btn').addEventListener('click', () => {
+  if (!confirm('Reset all settings to defaults?')) return;
+  populateForm({});
+});
+
+// ── Init — fetch config from server then populate ─────────────────────────────
+fetchConfig().then(cfg => populateForm(cfg));
+</script>
+</body>
+</html>
