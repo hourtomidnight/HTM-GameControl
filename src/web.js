@@ -56,8 +56,8 @@ function createWebServer(deps) {
     port = 0,
   } = deps;
 
+  void port; // accepted as informational metadata only — the factory NEVER listens
   const ROOT = path.resolve(publicDir);
-  const startedAt = Date.now();
   const clients = new Set();
 
   function broadcast(obj) {
@@ -98,7 +98,14 @@ function createWebServer(deps) {
 
   function serveStatic(req, res, urlPath) {
     const rel = urlPath === '/' ? '/operator.html' : urlPath;
-    const filePath = path.join(ROOT, decodeURIComponent(rel));
+    let decoded;
+    try {
+      decoded = decodeURIComponent(rel);
+    } catch {
+      res.writeHead(400); res.end('Bad request');
+      return;
+    }
+    const filePath = path.join(ROOT, decoded);
     if (filePath !== ROOT && !filePath.startsWith(ROOT + path.sep)) {
       res.writeHead(403); res.end('Forbidden');
       return;
@@ -147,7 +154,7 @@ function createWebServer(deps) {
     if (url === '/cmd' && req.method === 'POST') {
       try {
         const msg = JSON.parse(await readBody(req));
-        try { engine.command(msg); } catch (e) { /* engine guards internally */ }
+        try { engine.command(msg); } catch (e) { console.error('engine.command failed:', e); }
         res.writeHead(204); res.end();
       } catch {
         res.writeHead(400); res.end('Bad JSON');
@@ -251,7 +258,7 @@ function createWebServer(deps) {
     server.close();
   }
 
-  return { server, close, broadcast, startedAt };
+  return { server, close, broadcast };
 }
 
 module.exports = { createWebServer };

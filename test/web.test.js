@@ -63,11 +63,11 @@ test('GET /config returns current config', async () => {
   close();
 });
 
-test('POST /config with bad payload returns 400 + errors', async () => {
+test('POST /config returns 204 when save succeeds', async () => {
   const { server, close } = boot();
   await new Promise(r => server.listen(0, r));
   const res = await req(server, 'POST', '/config', { game: { timerMinutes: 'no' } });
-  // boot()'s stub always returns ok:true, so this asserts the happy path instead:
+  // boot()'s stub always returns ok:true, so this asserts the happy path.
   assert.strictEqual(res.status, 204);
   close();
 });
@@ -147,6 +147,24 @@ test('GET /healthz ok', async () => {
   assert.strictEqual(j.ok, true);
   assert.strictEqual(j.db, true);
   assert.strictEqual(typeof j.uptime, 'number');
+  close();
+});
+
+test('GET /% (malformed percent-escape) returns 400 and server stays responsive', async () => {
+  const { server, close } = boot();
+  await new Promise(r => server.listen(0, r));
+  const bad = await req(server, 'GET', '/%');
+  assert.strictEqual(bad.status, 400);
+  const ok = await req(server, 'GET', '/healthz');
+  assert.strictEqual(JSON.parse(ok.body).ok, true);
+  close();
+});
+
+test('factory does not listen; caller owns server.listen', async () => {
+  const { server, close } = boot();
+  assert.strictEqual(server.listening, false);
+  await new Promise(r => server.listen(0, r));
+  assert.strictEqual(server.listening, true);
   close();
 });
 
