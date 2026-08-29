@@ -99,6 +99,33 @@ test('onState fires on every change', () => {
   assert.ok(calls >= 2);
 });
 
+test('a synchronously throwing sheets driver does not break command()', () => {
+  const es = createEventStore({ path: ':memory:' });
+  const gs = createGameStore(es.db);
+  let t = 10000;
+  const sheets = {
+    onGameStart() { throw new Error('sync boom'); },
+    onSessionSync() { throw new Error('sync boom'); },
+    onHint() { throw new Error('sync boom'); },
+  };
+  const engine = createGameEngine({
+    eventStore: es, gameStore: gs, sheets,
+    now: () => t, setInterval: () => 1, clearInterval: () => {},
+  });
+  assert.doesNotThrow(() => engine.command({ type: 'start' }));
+  const s = engine.getState();
+  assert.strictEqual(s.phase, 'running');
+  assert.ok(s.gameId);
+  assert.doesNotThrow(() => engine.command({ type: 'add-min' }));
+});
+
+test('pause is a no-op unless phase is running', () => {
+  const { es, engine } = mk();
+  engine.command({ type: 'pause' });
+  assert.strictEqual(engine.getState().phase, 'waiting');
+  assert.strictEqual(es.query({ type: 'pause' }).length, 0);
+});
+
 test('onState returns an unsubscribe function that stops further callbacks', () => {
   const { engine } = mk();
   let calls = 0;

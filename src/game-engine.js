@@ -59,11 +59,18 @@ function createGameEngine(deps) {
     } catch {}
   }
 
+  function safeSheets(fn) {
+    try {
+      const p = fn();
+      if (p && typeof p.then === 'function') p.catch(() => {});
+    } catch {}
+  }
+
   function startTimer() {
-    if (timer) return;
+    if (timer != null) return;
     timer = setIv(() => tickOnce(), 1000);
   }
-  function stopTimer() { if (timer) { clearIv(timer); timer = null; } }
+  function stopTimer() { if (timer != null) { clearIv(timer); timer = null; } }
 
   function tickOnce() {
     if (!s.timerRunning) return;
@@ -105,23 +112,35 @@ function createGameEngine(deps) {
     if ((type === 'start' || type === 'force-start') && s.phase === 'waiting' && !s.gameLocked) {
       const startTime = now();
       session = st.createSession({ startTime, room: s.room || '', ...pendingFields });
+      let g;
+      try {
+        g = gameStore.create({
+          started_ts: startTime, room: session.room, operator: session.operator,
+          team_name: session.teamName, new_players: session.newPlayers,
+          exp_players: session.experiencedPlayers, notes: session.notes,
+        });
+      } catch (err) {
+        session = null;
+        try {
+          eventStore.record({ ts: now(), source: 'system', type: 'game-store-error',
+            value: String(err && err.message || err) });
+        } catch {}
+        return; // stay at phase 'waiting' — do not half-start
+      }
       pendingFields = {};
-      const g = gameStore.create({
-        started_ts: startTime, room: session.room, operator: session.operator,
-        team_name: session.teamName, new_players: session.newPlayers,
-        exp_players: session.experiencedPlayers, notes: session.notes,
-      });
       gameId = g.id;
       s.phase = 'running'; s.timerRunning = true; s.onSplash = false;
       s.currentMin = startMinutes; s.currentSec = 0; s.clockForward = false;
       startTimer();
       record(type, { _source: msg._source });
-      if (sheets) sheets.onGameStart(gameId, session).catch(() => {});
+      if (sheets) safeSheets(() => sheets.onGameStart(gameId, session));
       emit();
       return;
     }
 
-    if (type === 'pause') { s.timerRunning = false; record(type, { _source: msg._source }); emit(); return; }
+    if (type === 'pause' && s.phase === 'running') {
+      s.timerRunning = false; record(type, { _source: msg._source }); emit(); return;
+    }
     if (type === 'resume' && !s.gameLocked && s.phase === 'running') {
       s.timerRunning = true; record(type, { _source: msg._source }); emit(); return;
     }
@@ -135,7 +154,7 @@ function createGameEngine(deps) {
                       net_adjust_s: st.netAdjustmentSeconds(session) });
       }
       record(type, { _source: msg._source });
-      if (sheets && gameId != null) sheets.onSessionSync(gameId, session).catch(() => {});
+      if (sheets && gameId != null) safeSheets(() => sheets.onSessionSync(gameId, session));
       emit();
       return;
     }
@@ -147,7 +166,7 @@ function createGameEngine(deps) {
       s.clueCount++;
       syncGameRow({ hint_count: session.hints.length });
       record(type, { subject: 'hint', value: rec.text, _source: msg._source });
-      if (sheets && gameId != null) sheets.onHint(gameId, session, rec).catch(() => {});
+      if (sheets && gameId != null) safeSheets(() => sheets.onHint(gameId, session, rec));
       emit();
       return;
     }
@@ -163,7 +182,7 @@ function createGameEngine(deps) {
       if (session) {
         st.finalizeSession(session, now(), 'Escaped');
         syncGameRow({ ended_ts: session.endTime, status: 'Escaped' });
-        if (sheets && gameId != null) sheets.onSessionSync(gameId, session).catch(() => {});
+        if (sheets && gameId != null) safeSheets(() => sheets.onSessionSync(gameId, session));
       }
       s.phase = 'escaped'; s.timerRunning = false; s.gameLocked = true; s.onSplash = true;
       stopTimer();
@@ -177,7 +196,7 @@ function createGameEngine(deps) {
       if (session) {
         st.finalizeSession(session, now(), 'Reset-Lost');
         syncGameRow({ ended_ts: session.endTime, status: 'Reset-Lost' });
-        if (sheets && gameId != null) sheets.onSessionSync(gameId, session).catch(() => {});
+        if (sheets && gameId != null) safeSheets(() => sheets.onSessionSync(gameId, session));
       }
       stopTimer();
       session = null; gameId = null; pendingFields = {};
