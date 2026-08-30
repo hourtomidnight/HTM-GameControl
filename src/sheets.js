@@ -158,11 +158,24 @@ function createSheets({ credentialsPath, config, eventStore, gameStore, googleFa
 
   // Rewrite the Hotkeys reference tab from the current hint config.
   // Row 1 is the header; one row per configured hint.
+  async function ensureTab(spreadsheetId, title) {
+    try {
+      await api.spreadsheets.batchUpdate({
+        spreadsheetId,
+        requestBody: { requests: [{ addSheet: { properties: { title } } }] },
+      });
+    } catch (e) {
+      // Already exists -> fine; anything else -> let the caller's guard log it
+      if (!/already exists/i.test(e.message || '')) throw e;
+    }
+  }
+
   const syncHotkeysTab = guard('syncHotkeysTab', async () => {
     const c = cfg();
     if (!c.hintsSpreadsheetId) return;
     const tab = c.hotkeysTabName || 'Hotkeys';
     const rows = buildHotkeysRows(config.current().hintGroups);
+    await ensureTab(c.hintsSpreadsheetId, tab);
     await api.spreadsheets.values.clear({
       spreadsheetId: c.hintsSpreadsheetId, range: `${tab}!A:C`,
     });

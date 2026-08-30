@@ -6,19 +6,22 @@ const stk = require('../src/session-tracker');
 const { createSheets, buildSessionRow, formatDuration, buildHotkeysRows } = require('../src/sheets');
 
 function fakeGoogle() {
-  const calls = { append: [], update: [], get: [], clear: [] };
+  const calls = { append: [], update: [], get: [], clear: [], batchUpdate: [] };
   let getRows = [['Sam'], ['Ana']];
   return {
     calls,
     setGetRows: (rows) => { getRows = rows; },
     api: {
-      spreadsheets: { values: {
-        append: async (a) => { calls.append.push(a);
-          return { data: { updates: { updatedRange: `${a.range.split('!')[0]}!A5:N5` } } }; },
-        update: async (u) => { calls.update.push(u); return { data: {} }; },
-        get: async (g) => { calls.get.push(g); return { data: { values: getRows } }; },
-        clear: async (c) => { calls.clear.push(c); return { data: {} }; },
-      }},
+      spreadsheets: {
+        batchUpdate: async (b) => { calls.batchUpdate.push(b); return { data: {} }; },
+        values: {
+          append: async (a) => { calls.append.push(a);
+            return { data: { updates: { updatedRange: `${a.range.split('!')[0]}!A5:N5` } } }; },
+          update: async (u) => { calls.update.push(u); return { data: {} }; },
+          get: async (g) => { calls.get.push(g); return { data: { values: getRows } }; },
+          clear: async (c) => { calls.clear.push(c); return { data: {} }; },
+        },
+      },
     },
   };
 }
@@ -148,6 +151,7 @@ test('syncHotkeysTab clears A:C then writes header + one row per hint', async ()
     config: cfg, googleFactory: () => fg.api,
   });
   await sheets.syncHotkeysTab();
+  assert.strictEqual(fg.calls.batchUpdate[0].requestBody.requests[0].addSheet.properties.title, 'Hotkeys');
   assert.strictEqual(fg.calls.clear[0].range, 'Hotkeys!A:C');
   assert.strictEqual(fg.calls.update[0].range, 'Hotkeys!A1');
   assert.deepStrictEqual(fg.calls.update[0].requestBody.values, [
