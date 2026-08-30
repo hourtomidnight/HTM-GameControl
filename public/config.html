@@ -323,7 +323,7 @@
       <input type="text" id="sessions-tab-name"
         title="The tab session rows are written to. Pick from the list, or type a new name to have it created on first write."
         placeholder="pick from the list, or type a new one" />
-      <select class="tab-picker" data-target="sessions-tab-name" style="flex:none;width:auto;max-width:220px;"></select>
+      <select class="tab-picker" data-target="sessions-tab-name" data-sheet="sessions" style="flex:none;width:auto;max-width:220px;"></select>
     </div>
     <div class="hint-note"><span id="sessions-tabs-status">Enter the Spreadsheet ID above to load its tab list.</span></div>
   </div>
@@ -338,13 +338,21 @@
     </div>
     <div class="hint-note">Can be the same Sheet as the session log (paste the same link), or a different one.</div>
     <div class="field-row">
-      <label>Hints tab name</label>
+      <label>Hint events tab</label>
       <input type="text" id="hints-tab-name"
-        title="The tab hint rows are written to. Pick from the list, or type a new name to have it created on first write."
+        title="One row is appended here every time a hint is shown to players during a game (Date, Time, Hint, Session start)."
         placeholder="pick from the list, or type a new one" />
-      <select class="tab-picker" data-target="hints-tab-name" style="flex:none;width:auto;max-width:220px;"></select>
+      <select class="tab-picker" data-target="hints-tab-name" data-sheet="hints" style="flex:none;width:auto;max-width:220px;"></select>
     </div>
-    <div class="hint-note"><span id="hints-tabs-status">Enter the Spreadsheet ID above to load its tab list.</span></div>
+    <div class="hint-note">Live game log — a row each time a hint is shown to players. Empty until games run.</div>
+    <div class="field-row">
+      <label>Hint list tab</label>
+      <input type="text" id="hotkeys-tab-name"
+        title="Your configured hints (Group | Hint | Hotkey). Cleared and rewritten from this page every time you Save. Default: Hotkeys."
+        placeholder="Hotkeys" />
+      <select class="tab-picker" data-target="hotkeys-tab-name" data-sheet="hints" style="flex:none;width:auto;max-width:220px;"></select>
+    </div>
+    <div class="hint-note"><span id="hints-tabs-status">Enter the Spreadsheet ID above to load its tab list.</span> &nbsp;This tab is auto-created if missing and rewritten on every Save (<code>Group | Hint | Hotkey</code>, row 1 = header).</div>
     <div class="hint-note">A second tab named <code>Hotkeys</code> in this same sheet is rewritten on every Save with your hint list (<code>Group | Hint | Hotkey</code>, row 1 = headers). Just create that tab; nothing to configure.</div>
   </div>
 
@@ -365,7 +373,7 @@
       <input type="text" id="operators-tab-name"
         title="The tab that holds the operator names. Pick from the list, or type one."
         placeholder="Drop Down options" />
-      <select class="tab-picker" data-target="operators-tab-name" style="flex:none;width:auto;max-width:220px;"></select>
+      <select class="tab-picker" data-target="operators-tab-name" data-sheet="operators" style="flex:none;width:auto;max-width:220px;"></select>
     </div>
     <div class="hint-note"><span id="operators-tabs-status"></span></div>
     <div class="field-row">
@@ -742,6 +750,7 @@ function populateForm(cfg) {
   document.getElementById('sessions-tab-name').value = sh.sessionsTabName || '';
   document.getElementById('hints-spreadsheet-id').value = sh.hintsSpreadsheetId || '';
   document.getElementById('hints-tab-name').value = sh.hintsTabName || '';
+  document.getElementById('hotkeys-tab-name').value = sh.hotkeysTabName || '';
   document.getElementById('operators-spreadsheet-id').value = sh.operatorsSpreadsheetId || '';
   document.getElementById('operators-tab-name').value = sh.operatorsTabName || '';
   document.getElementById('operators-column').value = sh.operatorsColumn || '';
@@ -782,6 +791,7 @@ document.getElementById('save-btn').addEventListener('click', async () => {
     sessionsTabName:         document.getElementById('sessions-tab-name').value.trim(),
     hintsSpreadsheetId:      extractSheetId(document.getElementById('hints-spreadsheet-id').value),
     hintsTabName:            document.getElementById('hints-tab-name').value.trim(),
+    hotkeysTabName:          document.getElementById('hotkeys-tab-name').value.trim(),
     operatorsSpreadsheetId:  extractSheetId(document.getElementById('operators-spreadsheet-id').value),
     operatorsTabName:        document.getElementById('operators-tab-name').value.trim(),
     operatorsColumn:         document.getElementById('operators-column').value.trim().toUpperCase().replace(/[^A-Z]/g, ''),
@@ -837,23 +847,33 @@ function extractSheetId(v) {
 
 // ── Tab-name dropdowns: real <select> populated from the sheet's tabs ─────────
 const TAB_SOURCES = {
-  'sessions-spreadsheet-id':  { target: 'sessions-tab-name',  status: 'sessions-tabs-status' },
-  'hints-spreadsheet-id':     { target: 'hints-tab-name',     status: 'hints-tabs-status' },
-  'operators-spreadsheet-id': { target: 'operators-tab-name', status: 'operators-tabs-status' },
+  'sessions-spreadsheet-id':  { sheet: 'sessions',  status: 'sessions-tabs-status' },
+  'hints-spreadsheet-id':     { sheet: 'hints',     status: 'hints-tabs-status' },
+  'operators-spreadsheet-id': { sheet: 'operators', status: 'operators-tabs-status' },
 };
 function esc(t) { return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
+
+function fillPicker(picker, titles) {
+  const input = document.getElementById(picker.dataset.target);
+  const current = (input && input.value || '').trim();
+  const opts = ['<option value="">— pick a tab —</option>'].concat(
+    titles.map(t => '<option value="' + esc(t) + '"' + (t === current ? ' selected' : '') + '>' + esc(t) + '</option>'));
+  if (current && !titles.includes(current)) {
+    opts.splice(1, 0, '<option value="' + esc(current) + '" selected>' + esc(current) + ' (new — will be created)</option>');
+  }
+  picker.innerHTML = opts.join('');
+}
 
 async function loadTabs(idFieldId) {
   const src = TAB_SOURCES[idFieldId];
   if (!src) return;
   const id = (document.getElementById(idFieldId).value || '').trim();
-  const input = document.getElementById(src.target);
-  const picker = document.querySelector('select.tab-picker[data-target="' + src.target + '"]');
+  const pickers = [...document.querySelectorAll('select.tab-picker[data-sheet="' + src.sheet + '"]')];
   const statusEl = document.getElementById(src.status);
-  if (!picker) return;
+  if (!pickers.length) return;
 
   if (!id) {
-    picker.innerHTML = '<option value="">— set the Spreadsheet ID —</option>';
+    pickers.forEach(p => { p.innerHTML = '<option value="">— set the Spreadsheet ID —</option>'; });
     if (statusEl) statusEl.textContent = 'Enter the Spreadsheet ID above to load its tab list.';
     return;
   }
@@ -864,14 +884,7 @@ async function loadTabs(idFieldId) {
     titles = ((await r.json()) || {}).titles || [];
   } catch (e) { titles = []; }
 
-  const current = (input.value || '').trim();
-  const opts = ['<option value="">— pick a tab —</option>']
-    .concat(titles.map(t => '<option value="' + esc(t) + '"' + (t === current ? ' selected' : '') + '>' + esc(t) + '</option>'));
-  // If the saved name isn't a real tab (e.g. a log tab not created yet), keep it selectable.
-  if (current && !titles.includes(current)) {
-    opts.splice(1, 0, '<option value="' + esc(current) + '" selected>' + esc(current) + ' (new — will be created)</option>');
-  }
-  picker.innerHTML = opts.join('');
+  pickers.forEach(p => fillPicker(p, titles));
 
   if (statusEl) {
     statusEl.textContent = titles.length
