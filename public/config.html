@@ -266,45 +266,86 @@
     </div>
   </details>
 
+  <details class="help-box">
+    <summary>What data goes where — the columns each tab gets</summary>
+    <div class="help-body">
+      The app <b>appends one row</b> each time. You don't build formulas — just make the tab and
+      (optionally) put these as a header row so the columns make sense.
+
+      <p style="margin:12px 0 4px;"><b>Session Log tab</b> — one row per game, written at Start and updated as the game runs:</p>
+      <div style="overflow-x:auto;"><table class="hotkey-table">
+        <thead><tr><th>A</th><th>B</th><th>C</th><th>D</th><th>E</th><th>F</th><th>G</th><th>H</th><th>I</th><th>J</th><th>K</th><th>L</th><th>M</th><th>N</th></tr></thead>
+        <tbody><tr>
+          <td>Date</td><td>Start Time</td><td>Room</td><td>Operator</td><td>Team Name</td>
+          <td>New Players</td><td>Exp. Players</td><td>End Time</td><td>Duration</td><td>Status</td>
+          <td># Time Adj.</td><td>Net Time Adj.</td><td>Hint Count</td><td>Notes</td>
+        </tr></tbody>
+      </table></div>
+      <div class="hint-note" style="margin-left:0;">Example row: <code>2026-08-29 &nbsp; 3:14:07 PM &nbsp; Nibiru Brain &nbsp; elshoff &nbsp; The Aardvarks &nbsp; 2 &nbsp; 3 &nbsp; 3:59:41 PM &nbsp; 00:45:34 &nbsp; Escaped &nbsp; 1 &nbsp; +01:00 &nbsp; 4 &nbsp; nice group</code></div>
+
+      <p style="margin:14px 0 4px;"><b>Hint Log tab</b> — one row every time a hint is shown on the game screen:</p>
+      <div style="overflow-x:auto;"><table class="hotkey-table">
+        <thead><tr><th>A</th><th>B</th><th>C</th><th>D</th></tr></thead>
+        <tbody><tr><td>Date</td><td>Time</td><td>Hint Text</td><td>Session Start Time</td></tr></tbody>
+      </table></div>
+      <div class="hint-note" style="margin-left:0;">Example row: <code>2026-08-29 &nbsp; 3:22:10 PM &nbsp; Look under the rug &nbsp; 3:14:07 PM</code></div>
+
+      <p style="margin:14px 0 4px;"><b>Operators tab</b> (in the Tracker sheet) — the app <i>reads</i> this, never writes it:</p>
+      Names in <b>column B, starting at row 2</b>, on a tab named exactly <code>Drop Down options</code>. Those become the choices in the operator picker on the console.
+    </div>
+  </details>
+
   <div class="card">
     <h2>Session Log</h2>
     <div class="field-row">
       <label>Spreadsheet ID</label>
-      <input type="text" id="sessions-spreadsheet-id" placeholder="the code from the Sheet's URL" />
+      <input type="text" id="sessions-spreadsheet-id"
+        title="The long code from the Sheet's web address, e.g. 1A2b3C4d5E6f7G8h9I0jKlMnOpQrStUvWxYz — NOT the Sheet's title."
+        placeholder="e.g. 1A2b3C4d5E6f7G8h…" />
     </div>
-    <div class="hint-note">From <code>docs.google.com/spreadsheets/d/<b>THIS-PART</b>/edit</code> — not the Sheet's name.</div>
+    <div class="hint-note">From <code>docs.google.com/spreadsheets/d/<b>THIS-PART</b>/edit</code> — not the Sheet's name. Hover the box for an example.</div>
     <div class="field-row">
       <label>Tab name</label>
-      <input type="text" id="sessions-tab-name" placeholder="e.g. Sessions" />
+      <input type="text" id="sessions-tab-name"
+        title="Exact name of the tab at the bottom of that Google Sheet, e.g. Sessions or Nibiru-Sessions"
+        placeholder="e.g. Sessions" />
     </div>
-    <div class="hint-note">Must exactly match a tab along the bottom of that Google Sheet.</div>
+    <div class="hint-note">Must exactly match a tab along the bottom of that Google Sheet (case + spaces).</div>
   </div>
 
   <div class="card">
     <h2>Hint Log</h2>
     <div class="field-row">
       <label>Spreadsheet ID</label>
-      <input type="text" id="hints-spreadsheet-id" placeholder="the code from the Sheet's URL" />
+      <input type="text" id="hints-spreadsheet-id"
+        title="Sheet ID for the hint log. Can be the SAME id as the session log if you want both tabs in one Sheet."
+        placeholder="e.g. 1A2b3C4d5E6f7G8h… (may match the session log)" />
     </div>
     <div class="hint-note">Can be the same Sheet as the session log, or a different one.</div>
     <div class="field-row">
       <label>Hints tab name</label>
-      <input type="text" id="hints-tab-name" placeholder="e.g. Nibiru-Hints" />
+      <input type="text" id="hints-tab-name"
+        title="Exact name of the tab that hint rows are appended to, e.g. Nibiru-Hints"
+        placeholder="e.g. Nibiru-Hints" />
     </div>
     <div class="field-row">
       <label>Hotkeys tab name</label>
-      <input type="text" id="hotkeys-tab-name" placeholder="e.g. Hotkeys" />
+      <input type="text" id="hotkeys-tab-name"
+        title="Not used yet (planned). Safe to leave blank."
+        placeholder="leave blank for now" />
     </div>
-    <div class="hint-note">Optional. If set, your hint hotkey list is mirrored to this tab for reference.</div>
+    <div class="hint-note">Not wired up yet — a later version will mirror your hint hotkey list here. Leave blank.</div>
   </div>
 
   <div class="card">
     <h2>Operators Dropdown</h2>
     <div class="field-row">
       <label>Spreadsheet ID</label>
-      <input type="text" id="operators-spreadsheet-id" placeholder="Tracker's spreadsheet ID" />
+      <input type="text" id="operators-spreadsheet-id"
+        title="Sheet ID of the Tracker spreadsheet that has a 'Drop Down options' tab with operator names in column B."
+        placeholder="e.g. 1A2b3C4d5E6f7G8h… (the Tracker sheet)" />
     </div>
-    <div class="hint-note">Optional. Reads operator names from a “Drop Down options” tab to fill the operator picker on the console.</div>
+    <div class="hint-note">Optional. Reads operator names from column&nbsp;B (row&nbsp;2 down) of a tab named exactly <code>Drop Down options</code> and puts them in the operator picker on the console. Leave blank to type operator names by hand.</div>
   </div>
 </div>
 
