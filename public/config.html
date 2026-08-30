@@ -43,6 +43,10 @@
     input[type="number"] { width: 80px; }
     input[type="text"]   { flex: 1; }
     input[type="range"]  { width: 160px; accent-color: #a0c4ff; }
+    select.tab-picker {
+      background: #0f3460; border: 1px solid #1a4a80; color: #fff;
+      border-radius: 6px; padding: 5px 8px; font-size: 13px; cursor: pointer;
+    }
     .vol-val { color: #a0c4ff; font-weight: bold; width: 38px; }
 
     /* ── Groups editor ── */
@@ -316,10 +320,10 @@
     <div class="hint-note">Paste the whole address bar from your open Sheet. The page keeps just the ID.</div>
     <div class="field-row">
       <label>Tab name</label>
-      <input type="text" id="sessions-tab-name" list="dl-sessions-tabs"
-        title="Pick from the sheet's real tabs (dropdown), or type a new name to have it created on first write."
-        placeholder="pick a tab, or type a new one" />
-      <datalist id="dl-sessions-tabs"></datalist>
+      <input type="text" id="sessions-tab-name"
+        title="The tab session rows are written to. Pick from the list, or type a new name to have it created on first write."
+        placeholder="pick from the list, or type a new one" />
+      <select class="tab-picker" data-target="sessions-tab-name" style="flex:none;width:auto;max-width:220px;"></select>
     </div>
     <div class="hint-note"><span id="sessions-tabs-status">Enter the Spreadsheet ID above to load its tab list.</span></div>
   </div>
@@ -335,10 +339,10 @@
     <div class="hint-note">Can be the same Sheet as the session log (paste the same link), or a different one.</div>
     <div class="field-row">
       <label>Hints tab name</label>
-      <input type="text" id="hints-tab-name" list="dl-hints-tabs"
-        title="Pick from the sheet's real tabs (dropdown), or type a new name to have it created on first write."
-        placeholder="pick a tab, or type a new one" />
-      <datalist id="dl-hints-tabs"></datalist>
+      <input type="text" id="hints-tab-name"
+        title="The tab hint rows are written to. Pick from the list, or type a new name to have it created on first write."
+        placeholder="pick from the list, or type a new one" />
+      <select class="tab-picker" data-target="hints-tab-name" style="flex:none;width:auto;max-width:220px;"></select>
     </div>
     <div class="hint-note"><span id="hints-tabs-status">Enter the Spreadsheet ID above to load its tab list.</span></div>
     <div class="hint-note">A second tab named <code>Hotkeys</code> in this same sheet is rewritten on every Save with your hint list (<code>Group | Hint | Hotkey</code>, row 1 = headers). Just create that tab; nothing to configure.</div>
@@ -358,10 +362,10 @@
     </div>
     <div class="field-row">
       <label>Tab name</label>
-      <input type="text" id="operators-tab-name" list="dl-operators-tabs"
-        title="Pick from the sheet's real tabs (dropdown), or type one."
+      <input type="text" id="operators-tab-name"
+        title="The tab that holds the operator names. Pick from the list, or type one."
         placeholder="Drop Down options" />
-      <datalist id="dl-operators-tabs"></datalist>
+      <select class="tab-picker" data-target="operators-tab-name" style="flex:none;width:auto;max-width:220px;"></select>
     </div>
     <div class="hint-note"><span id="operators-tabs-status"></span></div>
     <div class="field-row">
@@ -831,32 +835,59 @@ function extractSheetId(v) {
   el.addEventListener('paste', () => setTimeout(() => { normalize(); loadTabs(id); }, 0));
 });
 
-// ── Tab-name dropdowns: populate <datalist> from the sheet's real tabs ────────
+// ── Tab-name dropdowns: real <select> populated from the sheet's tabs ─────────
 const TAB_SOURCES = {
-  'sessions-spreadsheet-id':  { list: 'dl-sessions-tabs',  status: 'sessions-tabs-status' },
-  'hints-spreadsheet-id':     { list: 'dl-hints-tabs',     status: 'hints-tabs-status' },
-  'operators-spreadsheet-id': { list: 'dl-operators-tabs',  status: 'operators-tabs-status' },
+  'sessions-spreadsheet-id':  { target: 'sessions-tab-name',  status: 'sessions-tabs-status' },
+  'hints-spreadsheet-id':     { target: 'hints-tab-name',     status: 'hints-tabs-status' },
+  'operators-spreadsheet-id': { target: 'operators-tab-name', status: 'operators-tabs-status' },
 };
+function esc(t) { return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
+
 async function loadTabs(idFieldId) {
   const src = TAB_SOURCES[idFieldId];
   if (!src) return;
   const id = (document.getElementById(idFieldId).value || '').trim();
-  const listEl = document.getElementById(src.list);
+  const input = document.getElementById(src.target);
+  const picker = document.querySelector('select.tab-picker[data-target="' + src.target + '"]');
   const statusEl = document.getElementById(src.status);
-  if (!id) { listEl.innerHTML = ''; if (statusEl) statusEl.textContent = 'Enter the Spreadsheet ID above to load its tab list.'; return; }
+  if (!picker) return;
+
+  if (!id) {
+    picker.innerHTML = '<option value="">— set the Spreadsheet ID —</option>';
+    if (statusEl) statusEl.textContent = 'Enter the Spreadsheet ID above to load its tab list.';
+    return;
+  }
   if (statusEl) statusEl.textContent = 'Loading tabs…';
   let titles = [];
   try {
     const r = await fetch('/api/sheets/tabs?id=' + encodeURIComponent(id));
     titles = ((await r.json()) || {}).titles || [];
   } catch (e) { titles = []; }
-  listEl.innerHTML = titles.map(t => '<option value="' + t.replace(/"/g, '&quot;') + '"></option>').join('');
+
+  const current = (input.value || '').trim();
+  const opts = ['<option value="">— pick a tab —</option>']
+    .concat(titles.map(t => '<option value="' + esc(t) + '"' + (t === current ? ' selected' : '') + '>' + esc(t) + '</option>'));
+  // If the saved name isn't a real tab (e.g. a log tab not created yet), keep it selectable.
+  if (current && !titles.includes(current)) {
+    opts.splice(1, 0, '<option value="' + esc(current) + '" selected>' + esc(current) + ' (new — will be created)</option>');
+  }
+  picker.innerHTML = opts.join('');
+
   if (statusEl) {
     statusEl.textContent = titles.length
-      ? '✓ ' + titles.length + ' tab' + (titles.length === 1 ? '' : 's') + ' — click the field for the list. Typing a new name creates it on first write.'
+      ? '✓ ' + titles.length + ' tab' + (titles.length === 1 ? '' : 's') + ' in this sheet. Pick one, or type a new name in the box.'
       : "Couldn't read that sheet — check the ID and that it's shared with the service account.";
   }
 }
+
+// Picking from a dropdown fills the text box (which stays the source of truth).
+document.querySelectorAll('select.tab-picker').forEach(picker => {
+  picker.addEventListener('change', () => {
+    if (!picker.value) return;
+    const input = document.getElementById(picker.dataset.target);
+    if (input) input.value = picker.value;
+  });
+});
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
 const TAB_KEY = 'htm-config-tab';
