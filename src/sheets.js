@@ -141,13 +141,14 @@ function createSheets({ credentialsPath, config, eventStore, gameStore, googleFa
   // Row 1 is the header; one row per configured hint.
   const syncHotkeysTab = guard('syncHotkeysTab', async () => {
     const c = cfg();
-    if (!c.hintsSpreadsheetId || !c.hotkeysTabName) return;
+    if (!c.hintsSpreadsheetId) return;
+    const tab = c.hotkeysTabName || 'Hotkeys';
     const rows = buildHotkeysRows(config.current().hintGroups);
     await api.spreadsheets.values.clear({
-      spreadsheetId: c.hintsSpreadsheetId, range: `${c.hotkeysTabName}!A:C`,
+      spreadsheetId: c.hintsSpreadsheetId, range: `${tab}!A:C`,
     });
     await api.spreadsheets.values.update({
-      spreadsheetId: c.hintsSpreadsheetId, range: `${c.hotkeysTabName}!A1`,
+      spreadsheetId: c.hintsSpreadsheetId, range: `${tab}!A1`,
       valueInputOption: 'RAW',
       requestBody: { values: [['Group', 'Hint', 'Hotkey'], ...rows] },
     });

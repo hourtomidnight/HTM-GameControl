@@ -338,13 +338,7 @@
         title="Exact name of the tab that hint rows are appended to, e.g. Nibiru-Hints"
         placeholder="e.g. Nibiru-Hints" />
     </div>
-    <div class="field-row">
-      <label>Hotkeys tab name</label>
-      <input type="text" id="hotkeys-tab-name"
-        title="A tab in the Hint Log sheet that gets rewritten with your hint list each time you Save: A=Group, B=Hint, C=Hotkey (row 1 = headers)."
-        placeholder="e.g. Hotkeys" />
-    </div>
-    <div class="hint-note">Optional. On every Save, this tab (in the Hint Log sheet) is cleared and rewritten: <b>row 1</b> = <code>Group | Hint | Hotkey</code>, then one row per configured hint. Leave blank to skip.</div>
+    <div class="hint-note">A second tab named <code>Hotkeys</code> in this same sheet is rewritten on every Save with your hint list (<code>Group | Hint | Hotkey</code>, row 1 = headers). Just create that tab; nothing to configure.</div>
   </div>
 
   <div class="card">
@@ -696,7 +690,6 @@ function populateForm(cfg) {
   document.getElementById('sessions-tab-name').value = sh.sessionsTabName || '';
   document.getElementById('hints-spreadsheet-id').value = sh.hintsSpreadsheetId || '';
   document.getElementById('hints-tab-name').value = sh.hintsTabName || '';
-  document.getElementById('hotkeys-tab-name').value = sh.hotkeysTabName || '';
   document.getElementById('operators-spreadsheet-id').value = sh.operatorsSpreadsheetId || '';
   document.getElementById('operators-tab-name').value = sh.operatorsTabName || '';
   document.getElementById('operators-column').value = sh.operatorsColumn || '';
@@ -737,7 +730,6 @@ document.getElementById('save-btn').addEventListener('click', async () => {
     sessionsTabName:         document.getElementById('sessions-tab-name').value.trim(),
     hintsSpreadsheetId:      extractSheetId(document.getElementById('hints-spreadsheet-id').value),
     hintsTabName:            document.getElementById('hints-tab-name').value.trim(),
-    hotkeysTabName:          document.getElementById('hotkeys-tab-name').value.trim(),
     operatorsSpreadsheetId:  extractSheetId(document.getElementById('operators-spreadsheet-id').value),
     operatorsTabName:        document.getElementById('operators-tab-name').value.trim(),
     operatorsColumn:         document.getElementById('operators-column').value.trim().toUpperCase().replace(/[^A-Z]/g, ''),

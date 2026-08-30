@@ -154,7 +154,7 @@ test('syncHotkeysTab clears A:C then writes header + one row per hint', async ()
     ['P1', 'b', ''],
   ]);
 
-  // No-op when the tab name is unset
+  // Defaults to a tab called "Hotkeys" when hotkeysTabName is not set
   const fg2 = fakeGoogle();
   const s2 = createSheets({
     credentialsPath: '/nonexistent', eventStore: es, gameStore: gs,
@@ -162,8 +162,19 @@ test('syncHotkeysTab clears A:C then writes header + one row per hint', async ()
     googleFactory: () => fg2.api,
   });
   await s2.syncHotkeysTab();
-  assert.strictEqual(fg2.calls.clear.length, 0);
-  assert.strictEqual(fg2.calls.update.length, 0);
+  assert.strictEqual(fg2.calls.clear[0].range, 'Hotkeys!A:C');
+  assert.deepStrictEqual(fg2.calls.update[0].requestBody.values, [['Group', 'Hint', 'Hotkey']]);
+
+  // No-op with no Hint Log spreadsheet configured
+  const fg3 = fakeGoogle();
+  const s3 = createSheets({
+    credentialsPath: '/nonexistent', eventStore: es, gameStore: gs,
+    config: { current: () => ({ sheets: {}, hintGroups: [] }) },
+    googleFactory: () => fg3.api,
+  });
+  await s3.syncHotkeysTab();
+  assert.strictEqual(fg3.calls.clear.length, 0);
+  assert.strictEqual(fg3.calls.update.length, 0);
 });
 
 test('readOperators uses the configured tab / column / start row', async () => {
