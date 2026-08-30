@@ -170,15 +170,34 @@ function createSheets({ credentialsPath, config, eventStore, gameStore, googleFa
 
   // Rewrite the Hotkeys reference tab from the current hint config.
   // Row 1 is the header; one row per configured hint.
+  // Create the tab only if it's genuinely missing. Returns true if we just
+  // created it (so the caller can allow for Sheets' brief propagation lag).
   async function ensureTab(spreadsheetId, title) {
+    let existing = [];
+    try {
+      const meta = await api.spreadsheets.get({ spreadsheetId, fields: 'sheets.properties.title' });
+      existing = (meta.data.sheets || []).map(s => s.properties && s.properties.title);
+    } catch { /* fall through and just try to add */ }
+    if (existing.includes(title)) return false;
     try {
       await api.spreadsheets.batchUpdate({
         spreadsheetId,
         requestBody: { requests: [{ addSheet: { properties: { title } } }] },
       });
+      return true;
     } catch (e) {
-      // Already exists -> fine; anything else -> let the caller's guard log it
-      if (!/already exists/i.test(e.message || '')) throw e;
+      if (/already exists/i.test(e.message || '')) return false;
+      throw e;
+    }
+  }
+
+  async function withRetry(fn, tries = 4) {
+    for (let i = 0; ; i++) {
+      try { return await fn(); }
+      catch (e) {
+        if (i >= tries - 1 || !/unable to parse range|not found/i.test(e.message || '')) throw e;
+        await new Promise(r => setTimeout(r, 400 * (i + 1)));
+      }
     }
   }
 
@@ -188,14 +207,14 @@ function createSheets({ credentialsPath, config, eventStore, gameStore, googleFa
     const tab = c.hotkeysTabName || 'Hotkeys';
     const rows = buildHotkeysRows(config.current().hintGroups);
     await ensureTab(c.hintsSpreadsheetId, tab);
-    await api.spreadsheets.values.clear({
+    await withRetry(() => api.spreadsheets.values.clear({
       spreadsheetId: c.hintsSpreadsheetId, range: `${tab}!A:C`,
-    });
-    await api.spreadsheets.values.update({
+    }));
+    await withRetry(() => api.spreadsheets.values.update({
       spreadsheetId: c.hintsSpreadsheetId, range: `${tab}!A1`,
       valueInputOption: 'RAW',
       requestBody: { values: [['Group', 'Hint', 'Hotkey'], ...rows] },
-    });
+    }));
   });
 
   return {

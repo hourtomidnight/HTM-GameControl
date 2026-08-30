@@ -156,6 +156,7 @@ test('syncHotkeysTab clears A:C then writes header + one row per hint', async ()
     config: cfg, googleFactory: () => fg.api,
   });
   await sheets.syncHotkeysTab();
+  // fake's spreadsheets.get() has no 'Hotkeys' tab -> we create it
   assert.strictEqual(fg.calls.batchUpdate[0].requestBody.requests[0].addSheet.properties.title, 'Hotkeys');
   assert.strictEqual(fg.calls.clear[0].range, 'Hotkeys!A:C');
   assert.strictEqual(fg.calls.update[0].range, 'Hotkeys!A1');
@@ -175,6 +176,18 @@ test('syncHotkeysTab clears A:C then writes header + one row per hint', async ()
   await s2.syncHotkeysTab();
   assert.strictEqual(fg2.calls.clear[0].range, 'Hotkeys!A:C');
   assert.deepStrictEqual(fg2.calls.update[0].requestBody.values, [['Group', 'Hint', 'Hotkey']]);
+
+  // When the tab already exists (present in spreadsheets.get), skip addSheet
+  const fg4 = fakeGoogle();
+  fg4.api.spreadsheets.get = async () => ({ data: { sheets: [{ properties: { title: 'Hotkeys' } }] } });
+  const s4 = createSheets({
+    credentialsPath: '/nonexistent', eventStore: es, gameStore: gs,
+    config: { current: () => ({ sheets: { hintsSpreadsheetId: 'hid' }, hintGroups: [] }) },
+    googleFactory: () => fg4.api,
+  });
+  await s4.syncHotkeysTab();
+  assert.strictEqual(fg4.calls.batchUpdate.length, 0);
+  assert.strictEqual(fg4.calls.clear[0].range, 'Hotkeys!A:C');
 
   // No-op with no Hint Log spreadsheet configured
   const fg3 = fakeGoogle();
