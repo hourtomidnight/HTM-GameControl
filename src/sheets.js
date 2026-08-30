@@ -137,6 +137,25 @@ function createSheets({ credentialsPath, config, eventStore, gameStore, googleFa
   });
   const readOperators = async (...args) => (await readOperatorsGuarded(...args)) ?? [];
 
+  // Read the Hotkeys tab back: [{ group, hint, key }] for rows with a hint.
+  // Header row (row 1) is skipped.
+  const readHotkeysGuarded = guard('readHotkeys', async () => {
+    const c = cfg();
+    if (!c.hintsSpreadsheetId) return [];
+    const tab = c.hotkeysTabName || 'Hotkeys';
+    const res = await api.spreadsheets.values.get({
+      spreadsheetId: c.hintsSpreadsheetId, range: `${tab}!A2:C`,
+    });
+    return (res.data.values || [])
+      .map(r => ({
+        group: (r[0] || '').trim(),
+        hint: (r[1] || '').trim(),
+        key: (r[2] || '').trim(),
+      }))
+      .filter(x => x.hint);
+  });
+  const readHotkeys = async (...args) => (await readHotkeysGuarded(...args)) ?? [];
+
   // Rewrite the Hotkeys reference tab from the current hint config.
   // Row 1 is the header; one row per configured hint.
   const syncHotkeysTab = guard('syncHotkeysTab', async () => {
@@ -156,7 +175,7 @@ function createSheets({ credentialsPath, config, eventStore, gameStore, googleFa
 
   return {
     enabled: api !== null,
-    onGameStart, onSessionSync, onHint, readOperators, syncHotkeysTab,
+    onGameStart, onSessionSync, onHint, readOperators, readHotkeys, syncHotkeysTab,
     buildSessionRow, buildHintRow, buildHotkeysRows, formatDuration, formatNetAdjustment,
   };
 }

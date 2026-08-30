@@ -209,6 +209,14 @@ function createWebServer(deps) {
       return;
     }
 
+    // ── GET /api/sheets/hotkeys — read the Hotkeys tab back ─────────────
+    if (url === '/api/sheets/hotkeys' && req.method === 'GET') {
+      let rows = [];
+      try { rows = (await sheets.readHotkeys()) || []; } catch { rows = []; }
+      sendJson(res, 200, { rows });
+      return;
+    }
+
     // ── GET /api/games ──────────────────────────────────────────────────
     if (url === '/api/games' && req.method === 'GET') {
       const limit = toInt(q.get('limit')) || 20;

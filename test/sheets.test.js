@@ -7,14 +7,16 @@ const { createSheets, buildSessionRow, formatDuration, buildHotkeysRows } = requ
 
 function fakeGoogle() {
   const calls = { append: [], update: [], get: [], clear: [] };
+  let getRows = [['Sam'], ['Ana']];
   return {
     calls,
+    setGetRows: (rows) => { getRows = rows; },
     api: {
       spreadsheets: { values: {
         append: async (a) => { calls.append.push(a);
           return { data: { updates: { updatedRange: `${a.range.split('!')[0]}!A5:N5` } } }; },
         update: async (u) => { calls.update.push(u); return { data: {} }; },
-        get: async (g) => { calls.get.push(g); return { data: { values: [['Sam'], ['Ana']] } }; },
+        get: async (g) => { calls.get.push(g); return { data: { values: getRows } }; },
         clear: async (c) => { calls.clear.push(c); return { data: {} }; },
       }},
     },
@@ -175,6 +177,37 @@ test('syncHotkeysTab clears A:C then writes header + one row per hint', async ()
   await s3.syncHotkeysTab();
   assert.strictEqual(fg3.calls.clear.length, 0);
   assert.strictEqual(fg3.calls.update.length, 0);
+});
+
+test('readHotkeys parses A2:C into {group, hint, key}, skipping keyless-but-hintless rows', async () => {
+  const es = createEventStore({ path: ':memory:' });
+  const gs = createGameStore(es.db);
+  const fg = fakeGoogle();
+  fg.setGetRows([
+    ['Puzzle 1', 'Look up', 'F1'],
+    ['Puzzle 1', 'Open the safe', ''],
+    ['', 'Loose hint', 'F5'],
+    ['Puzzle 2', '', 'F9'],   // no hint text -> dropped
+  ]);
+  const sheets = createSheets({
+    credentialsPath: '/nonexistent', eventStore: es, gameStore: gs,
+    config: { current: () => ({ sheets: { hintsSpreadsheetId: 'hid' } }) },
+    googleFactory: () => fg.api,
+  });
+  const rows = await sheets.readHotkeys();
+  assert.strictEqual(fg.calls.get[0].range, 'Hotkeys!A2:C');
+  assert.deepStrictEqual(rows, [
+    { group: 'Puzzle 1', hint: 'Look up', key: 'F1' },
+    { group: 'Puzzle 1', hint: 'Open the safe', key: '' },
+    { group: '', hint: 'Loose hint', key: 'F5' },
+  ]);
+
+  // [] when no Hint Log spreadsheet configured
+  const s2 = createSheets({
+    credentialsPath: '/nonexistent', eventStore: es, gameStore: gs,
+    config: { current: () => ({ sheets: {} }) }, googleFactory: () => fakeGoogle().api,
+  });
+  assert.deepStrictEqual(await s2.readHotkeys(), []);
 });
 
 test('readOperators uses the configured tab / column / start row', async () => {

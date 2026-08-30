@@ -380,10 +380,16 @@
     <p style="color:#667;font-size:12px;margin-bottom:14px;line-height:1.5;">
       Group your hints (e.g. by puzzle). Give any hint a keyboard shortcut: click its key box, then press
       the key you want. Click again to change it, right-click to clear. All assigned shortcuts are listed
-      under the <b>Hotkeys</b> tab.
+      under the <b>Hotkeys</b> tab.<br>
+      You can also bulk-edit in the Google Sheet's <code>Hotkeys</code> tab (<code>Group | Hint | Hotkey</code>,
+      row 1 = header) and pull it back in with <b>Import from Sheet</b> — review, then <b>Save</b>.
     </p>
     <div id="groups-container"></div>
-    <button class="btn-add-group" id="btn-add-group" style="margin-top:12px;">+ Add Group</button>
+    <div style="display:flex;gap:10px;align-items:center;margin-top:12px;flex-wrap:wrap;">
+      <button class="btn-add-group" id="btn-add-group">+ Add Group</button>
+      <button class="btn-add-group" id="btn-import-hotkeys" style="background:#0f3040;color:#7fb8ff;">⬇ Import from Sheet</button>
+      <span id="import-status" style="color:#7fb8ff;font-size:12px;"></span>
+    </div>
   </div>
 </div>
 
@@ -669,6 +675,43 @@ startStopCapture.addEventListener('blur', () => {
 
 document.getElementById('btn-add-group').addEventListener('click', () => {
   container.appendChild(makeGroupCard({ name: '', hints: [] }));
+});
+
+document.getElementById('btn-import-hotkeys').addEventListener('click', async () => {
+  const statusEl = document.getElementById('import-status');
+  statusEl.textContent = 'Reading the Hotkeys tab…';
+  let rows = [];
+  try {
+    const r = await fetch('/api/sheets/hotkeys');
+    rows = ((await r.json()) || {}).rows || [];
+  } catch (e) { rows = []; }
+
+  if (!rows.length) {
+    statusEl.textContent = 'Nothing to import — the Hotkeys tab is empty, or Google Sheets is not connected.';
+    return;
+  }
+  if (!confirm('Replace the hint groups below with ' + rows.length +
+      ' row(s) from the Hotkeys tab?\n\nAny unsaved edits here will be lost. You will still need to Save to keep the result.')) {
+    statusEl.textContent = '';
+    return;
+  }
+
+  // Group rows by group name, first-appearance order
+  const groups = [];
+  const byName = new Map();
+  rows.forEach(x => {
+    const key = x.group || ' unnamed';
+    let g = byName.get(key);
+    if (!g) { g = { name: x.group || '', hints: [] }; byName.set(key, g); groups.push(g); }
+    g.hints.push({ text: x.hint, key: x.key || '' });
+  });
+
+  container.innerHTML = '';
+  groups.forEach(g => container.appendChild(makeGroupCard(g)));
+  statusEl.textContent =
+    'Imported ' + rows.length + ' hint' + (rows.length === 1 ? '' : 's') +
+    ' in ' + groups.length + ' group' + (groups.length === 1 ? '' : 's') +
+    ' — review, then Save to keep.';
 });
 
 // ── Populate form from config object ─────────────────────────────────────────
