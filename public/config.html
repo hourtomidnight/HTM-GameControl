@@ -242,10 +242,10 @@
     <div class="help-body">
       Session logs and hint logs are written to Google Sheets you own. You do this once per room.
       <ol>
-        <li><b>Get each Sheet's ID.</b> Open your Google Sheet in a browser. The ID is the long code in
-          the address bar between <code>/d/</code> and <code>/edit</code>:<br>
-          <code>https://docs.google.com/spreadsheets/d/<span class="hl">1AbCdEf…long…xyz</span>/edit</code><br>
-          Copy the highlighted part into the matching “spreadsheet ID” field below. It is NOT the sheet's title.</li>
+        <li><b>Point it at each Sheet.</b> Open your Google Sheet in a browser and copy the whole address
+          from the address bar. Paste it into the matching “Spreadsheet ID / URL” field below —
+          the page pulls the ID out of the link for you. (Pasting just the bare ID also works.)<br>
+          <code>https://docs.google.com/spreadsheets/d/<span class="hl">1AbCdEf…long…xyz</span>/edit</code></li>
         <li><b>Make the tabs.</b> Inside that Sheet, add a tab (the <code>+</code> at the bottom-left) for sessions
           and one for hints. Type those exact tab names into the “tab name” fields below —
           capitalisation and spaces must match exactly.</li>
@@ -298,12 +298,12 @@
   <div class="card">
     <h2>Session Log</h2>
     <div class="field-row">
-      <label>Spreadsheet ID</label>
+      <label>Spreadsheet ID / URL</label>
       <input type="text" id="sessions-spreadsheet-id"
-        title="The long code from the Sheet's web address, e.g. 1A2b3C4d5E6f7G8h9I0jKlMnOpQrStUvWxYz — NOT the Sheet's title."
-        placeholder="e.g. 1A2b3C4d5E6f7G8h…" />
+        title="Paste the full Google Sheets link (https://docs.google.com/spreadsheets/d/…/edit) — the ID is pulled out automatically. A bare ID also works."
+        placeholder="paste the full Sheet link, or just the ID" />
     </div>
-    <div class="hint-note">From <code>docs.google.com/spreadsheets/d/<b>THIS-PART</b>/edit</code> — not the Sheet's name. Hover the box for an example.</div>
+    <div class="hint-note">Paste the whole address bar from your open Sheet. The page keeps just the ID.</div>
     <div class="field-row">
       <label>Tab name</label>
       <input type="text" id="sessions-tab-name"
@@ -316,12 +316,12 @@
   <div class="card">
     <h2>Hint Log</h2>
     <div class="field-row">
-      <label>Spreadsheet ID</label>
+      <label>Spreadsheet ID / URL</label>
       <input type="text" id="hints-spreadsheet-id"
-        title="Sheet ID for the hint log. Can be the SAME id as the session log if you want both tabs in one Sheet."
-        placeholder="e.g. 1A2b3C4d5E6f7G8h… (may match the session log)" />
+        title="Paste the full Google Sheets link for the hint log — ID extracted automatically. Can be the SAME Sheet as the session log."
+        placeholder="paste the full Sheet link, or just the ID" />
     </div>
-    <div class="hint-note">Can be the same Sheet as the session log, or a different one.</div>
+    <div class="hint-note">Can be the same Sheet as the session log (paste the same link), or a different one.</div>
     <div class="field-row">
       <label>Hints tab name</label>
       <input type="text" id="hints-tab-name"
@@ -340,10 +340,10 @@
   <div class="card">
     <h2>Operators Dropdown</h2>
     <div class="field-row">
-      <label>Spreadsheet ID</label>
+      <label>Spreadsheet ID / URL</label>
       <input type="text" id="operators-spreadsheet-id"
-        title="Sheet ID of the Tracker spreadsheet that has a 'Drop Down options' tab with operator names in column B."
-        placeholder="e.g. 1A2b3C4d5E6f7G8h… (the Tracker sheet)" />
+        title="Paste the full link to the Tracker spreadsheet (it needs a 'Drop Down options' tab with operator names in column B)."
+        placeholder="paste the Tracker Sheet link, or just the ID" />
     </div>
     <div class="hint-note">Optional. Reads operator names from column&nbsp;B (row&nbsp;2 down) of a tab named exactly <code>Drop Down options</code> and puts them in the operator picker on the console. Leave blank to type operator names by hand.</div>
   </div>
@@ -700,12 +700,12 @@ document.getElementById('save-btn').addEventListener('click', async () => {
 
   merged.sheets = {
     ...(base.sheets || {}),
-    sessionsSpreadsheetId:   document.getElementById('sessions-spreadsheet-id').value.trim(),
+    sessionsSpreadsheetId:   extractSheetId(document.getElementById('sessions-spreadsheet-id').value),
     sessionsTabName:         document.getElementById('sessions-tab-name').value.trim(),
-    hintsSpreadsheetId:      document.getElementById('hints-spreadsheet-id').value.trim(),
+    hintsSpreadsheetId:      extractSheetId(document.getElementById('hints-spreadsheet-id').value),
     hintsTabName:            document.getElementById('hints-tab-name').value.trim(),
     hotkeysTabName:          document.getElementById('hotkeys-tab-name').value.trim(),
-    operatorsSpreadsheetId:  document.getElementById('operators-spreadsheet-id').value.trim(),
+    operatorsSpreadsheetId:  extractSheetId(document.getElementById('operators-spreadsheet-id').value),
   };
 
   merged.hintGroups = readGroupsFromDOM();
@@ -720,6 +720,39 @@ document.getElementById('save-btn').addEventListener('click', async () => {
 document.getElementById('reset-btn').addEventListener('click', () => {
   if (!confirm('Reset all settings to defaults?')) return;
   populateForm({});
+});
+
+// ── Google Sheet ID: accept a full URL OR a bare ID ──────────────────────────
+function extractSheetId(v) {
+  v = (v || '').trim();
+  if (!v) return '';
+  const m = v.match(/\/(?:spreadsheets|file)\/(?:u\/\d+\/)?d\/([A-Za-z0-9_-]+)/) ||
+            v.match(/[?&](?:id|key)=([A-Za-z0-9_-]+)/);
+  if (m) return m[1];
+  // Looks like a bare ID already (no spaces, no slashes) — leave as-is
+  if (/^[A-Za-z0-9_-]+$/.test(v)) return v;
+  return v; // unknown shape — hand back untouched, let the user/validation sort it
+}
+
+['sessions-spreadsheet-id', 'hints-spreadsheet-id', 'operators-spreadsheet-id'].forEach(id => {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const normalize = () => {
+    const before = el.value.trim();
+    const after = extractSheetId(before);
+    if (after !== before) {
+      el.value = after;
+      const note = el.parentElement.nextElementSibling;
+      if (note && note.classList.contains('hint-note')) {
+        const orig = note.dataset.orig || (note.dataset.orig = note.innerHTML);
+        note.innerHTML = '<span style="color:#7fff7f;">✓ Pulled the ID out of that link.</span>';
+        clearTimeout(note._t);
+        note._t = setTimeout(() => { note.innerHTML = orig; }, 4000);
+      }
+    }
+  };
+  el.addEventListener('blur', normalize);
+  el.addEventListener('paste', () => setTimeout(normalize, 0));
 });
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
