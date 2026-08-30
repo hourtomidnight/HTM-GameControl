@@ -156,6 +156,18 @@ function createSheets({ credentialsPath, config, eventStore, gameStore, googleFa
   });
   const readHotkeys = async (...args) => (await readHotkeysGuarded(...args)) ?? [];
 
+  // List the tab (sheet) titles in a spreadsheet, for the config dropdowns.
+  const listTabsGuarded = guard('listTabs', async (spreadsheetId) => {
+    if (!spreadsheetId) return [];
+    const res = await api.spreadsheets.get({
+      spreadsheetId, fields: 'sheets.properties.title',
+    });
+    return (res.data.sheets || [])
+      .map(s => s.properties && s.properties.title)
+      .filter(Boolean);
+  });
+  const listTabs = async (id) => (await listTabsGuarded(id)) ?? [];
+
   // Rewrite the Hotkeys reference tab from the current hint config.
   // Row 1 is the header; one row per configured hint.
   async function ensureTab(spreadsheetId, title) {
@@ -188,7 +200,7 @@ function createSheets({ credentialsPath, config, eventStore, gameStore, googleFa
 
   return {
     enabled: api !== null,
-    onGameStart, onSessionSync, onHint, readOperators, readHotkeys, syncHotkeysTab,
+    onGameStart, onSessionSync, onHint, readOperators, readHotkeys, listTabs, syncHotkeysTab,
     buildSessionRow, buildHintRow, buildHotkeysRows, formatDuration, formatNetAdjustment,
   };
 }

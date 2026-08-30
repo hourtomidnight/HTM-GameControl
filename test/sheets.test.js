@@ -14,6 +14,11 @@ function fakeGoogle() {
     api: {
       spreadsheets: {
         batchUpdate: async (b) => { calls.batchUpdate.push(b); return { data: {} }; },
+        get: async (g) => { calls.get.push(g); return { data: { sheets: [
+          { properties: { title: 'Sessions' } },
+          { properties: { title: 'pi-Hint-SON' } },
+          { properties: { title: 'Drop Down options' } },
+        ] } }; },
         values: {
           append: async (a) => { calls.append.push(a);
             return { data: { updates: { updatedRange: `${a.range.split('!')[0]}!A5:N5` } } }; },
@@ -181,6 +186,26 @@ test('syncHotkeysTab clears A:C then writes header + one row per hint', async ()
   await s3.syncHotkeysTab();
   assert.strictEqual(fg3.calls.clear.length, 0);
   assert.strictEqual(fg3.calls.update.length, 0);
+});
+
+test('listTabs returns the spreadsheet tab titles, [] with no id / no api', async () => {
+  const es = createEventStore({ path: ':memory:' });
+  const gs = createGameStore(es.db);
+  const fg = fakeGoogle();
+  const sheets = createSheets({
+    credentialsPath: '/nonexistent', eventStore: es, gameStore: gs,
+    config: { current: () => ({ sheets: {} }) }, googleFactory: () => fg.api,
+  });
+  assert.deepStrictEqual(await sheets.listTabs('abc123'),
+    ['Sessions', 'pi-Hint-SON', 'Drop Down options']);
+  assert.strictEqual(fg.calls.get[0].spreadsheetId, 'abc123');
+  assert.deepStrictEqual(await sheets.listTabs(''), []);
+
+  const noApi = createSheets({
+    credentialsPath: '/nonexistent', eventStore: es, gameStore: gs,
+    config: { current: () => ({ sheets: {} }) },
+  });
+  assert.deepStrictEqual(await noApi.listTabs('abc123'), []);
 });
 
 test('readHotkeys parses A2:C into {group, hint, key}, skipping keyless-but-hintless rows', async () => {

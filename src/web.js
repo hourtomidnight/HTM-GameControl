@@ -217,6 +217,14 @@ function createWebServer(deps) {
       return;
     }
 
+    // ── GET /api/sheets/tabs?id=<spreadsheetId> — list tab names ────────
+    if (url === '/api/sheets/tabs' && req.method === 'GET') {
+      let titles = [];
+      try { titles = (await sheets.listTabs(q.get('id') || '')) || []; } catch { titles = []; }
+      sendJson(res, 200, { titles });
+      return;
+    }
+
     // ── GET /api/games ──────────────────────────────────────────────────
     if (url === '/api/games' && req.method === 'GET') {
       const limit = toInt(q.get('limit')) || 20;

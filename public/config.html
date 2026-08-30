@@ -316,11 +316,12 @@
     <div class="hint-note">Paste the whole address bar from your open Sheet. The page keeps just the ID.</div>
     <div class="field-row">
       <label>Tab name</label>
-      <input type="text" id="sessions-tab-name"
-        title="Exact name of the tab at the bottom of that Google Sheet, e.g. Sessions or Nibiru-Sessions"
-        placeholder="e.g. Sessions" />
+      <input type="text" id="sessions-tab-name" list="dl-sessions-tabs"
+        title="Pick from the sheet's real tabs (dropdown), or type a new name to have it created on first write."
+        placeholder="pick a tab, or type a new one" />
+      <datalist id="dl-sessions-tabs"></datalist>
     </div>
-    <div class="hint-note">Must exactly match a tab along the bottom of that Google Sheet (case + spaces).</div>
+    <div class="hint-note"><span id="sessions-tabs-status">Enter the Spreadsheet ID above to load its tab list.</span></div>
   </div>
 
   <div class="card">
@@ -334,10 +335,12 @@
     <div class="hint-note">Can be the same Sheet as the session log (paste the same link), or a different one.</div>
     <div class="field-row">
       <label>Hints tab name</label>
-      <input type="text" id="hints-tab-name"
-        title="Exact name of the tab that hint rows are appended to, e.g. Nibiru-Hints"
-        placeholder="e.g. Nibiru-Hints" />
+      <input type="text" id="hints-tab-name" list="dl-hints-tabs"
+        title="Pick from the sheet's real tabs (dropdown), or type a new name to have it created on first write."
+        placeholder="pick a tab, or type a new one" />
+      <datalist id="dl-hints-tabs"></datalist>
     </div>
+    <div class="hint-note"><span id="hints-tabs-status">Enter the Spreadsheet ID above to load its tab list.</span></div>
     <div class="hint-note">A second tab named <code>Hotkeys</code> in this same sheet is rewritten on every Save with your hint list (<code>Group | Hint | Hotkey</code>, row 1 = headers). Just create that tab; nothing to configure.</div>
   </div>
 
@@ -355,10 +358,12 @@
     </div>
     <div class="field-row">
       <label>Tab name</label>
-      <input type="text" id="operators-tab-name"
-        title="Exact name of the tab that holds the operator names."
+      <input type="text" id="operators-tab-name" list="dl-operators-tabs"
+        title="Pick from the sheet's real tabs (dropdown), or type one."
         placeholder="Drop Down options" />
+      <datalist id="dl-operators-tabs"></datalist>
     </div>
+    <div class="hint-note"><span id="operators-tabs-status"></span></div>
     <div class="field-row">
       <label>Column</label>
       <input type="text" id="operators-column" style="width:70px;flex:none;"
@@ -700,7 +705,7 @@ document.getElementById('btn-import-hotkeys').addEventListener('click', async ()
   const groups = [];
   const byName = new Map();
   rows.forEach(x => {
-    const key = x.group || ' unnamed';
+    const key = x.group || '(no group)';
     let g = byName.get(key);
     if (!g) { g = { name: x.group || '', hints: [] }; byName.set(key, g); groups.push(g); }
     g.hints.push({ text: x.hint, key: x.key || '' });
@@ -822,9 +827,36 @@ function extractSheetId(v) {
       }
     }
   };
-  el.addEventListener('blur', normalize);
-  el.addEventListener('paste', () => setTimeout(normalize, 0));
+  el.addEventListener('blur', () => { normalize(); loadTabs(id); });
+  el.addEventListener('paste', () => setTimeout(() => { normalize(); loadTabs(id); }, 0));
 });
+
+// ── Tab-name dropdowns: populate <datalist> from the sheet's real tabs ────────
+const TAB_SOURCES = {
+  'sessions-spreadsheet-id':  { list: 'dl-sessions-tabs',  status: 'sessions-tabs-status' },
+  'hints-spreadsheet-id':     { list: 'dl-hints-tabs',     status: 'hints-tabs-status' },
+  'operators-spreadsheet-id': { list: 'dl-operators-tabs',  status: 'operators-tabs-status' },
+};
+async function loadTabs(idFieldId) {
+  const src = TAB_SOURCES[idFieldId];
+  if (!src) return;
+  const id = (document.getElementById(idFieldId).value || '').trim();
+  const listEl = document.getElementById(src.list);
+  const statusEl = document.getElementById(src.status);
+  if (!id) { listEl.innerHTML = ''; if (statusEl) statusEl.textContent = 'Enter the Spreadsheet ID above to load its tab list.'; return; }
+  if (statusEl) statusEl.textContent = 'Loading tabs…';
+  let titles = [];
+  try {
+    const r = await fetch('/api/sheets/tabs?id=' + encodeURIComponent(id));
+    titles = ((await r.json()) || {}).titles || [];
+  } catch (e) { titles = []; }
+  listEl.innerHTML = titles.map(t => '<option value="' + t.replace(/"/g, '&quot;') + '"></option>').join('');
+  if (statusEl) {
+    statusEl.textContent = titles.length
+      ? '✓ ' + titles.length + ' tab' + (titles.length === 1 ? '' : 's') + ' — click the field for the list. Typing a new name creates it on first write.'
+      : "Couldn't read that sheet — check the ID and that it's shared with the service account.";
+  }
+}
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
 const TAB_KEY = 'htm-config-tab';
@@ -868,6 +900,7 @@ fetchConfig().then(cfg => {
   try { startTab = localStorage.getItem(TAB_KEY) || 'general'; } catch (e) {}
   if (!document.querySelector('.tab-btn[data-tab="' + startTab + '"]')) startTab = 'general';
   showTab(startTab);
+  ['sessions-spreadsheet-id', 'hints-spreadsheet-id', 'operators-spreadsheet-id'].forEach(loadTabs);
 });
 </script>
 </body>
