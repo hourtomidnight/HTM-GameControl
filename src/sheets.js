@@ -113,9 +113,14 @@ function createSheets({ credentialsPath, config, eventStore, gameStore, googleFa
 
   const readOperatorsGuarded = guard('readOperators', async () => {
     const c = config.current();
-    if (!c.sheets?.operatorsSpreadsheetId) return [];
+    const s = c.sheets || {};
+    if (!s.operatorsSpreadsheetId) return [];
+    const tab = s.operatorsTabName || 'Drop Down options';
+    const col = (s.operatorsColumn || 'B').toUpperCase().replace(/[^A-Z]/g, '') || 'B';
+    const startRow = Math.max(1, parseInt(s.operatorsStartRow, 10) || 2);
+    const range = `${tab}!${col}${startRow}:${col}`;
     const res = await api.spreadsheets.values.get({
-      spreadsheetId: c.sheets.operatorsSpreadsheetId, range: 'Drop Down options!B2:B',
+      spreadsheetId: s.operatorsSpreadsheetId, range,
     });
     return (res.data.values || []).map(r => r[0]).filter(Boolean);
   });

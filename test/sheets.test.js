@@ -6,7 +6,7 @@ const stk = require('../src/session-tracker');
 const { createSheets, buildSessionRow, formatDuration } = require('../src/sheets');
 
 function fakeGoogle() {
-  const calls = { append: [], update: [] };
+  const calls = { append: [], update: [], get: [] };
   return {
     calls,
     api: {
@@ -14,7 +14,7 @@ function fakeGoogle() {
         append: async (a) => { calls.append.push(a);
           return { data: { updates: { updatedRange: `${a.range.split('!')[0]}!A5:N5` } } }; },
         update: async (u) => { calls.update.push(u); return { data: {} }; },
-        get: async () => ({ data: { values: [['Sam'], ['Ana']] } }),
+        get: async (g) => { calls.get.push(g); return { data: { values: [['Sam'], ['Ana']] } }; },
         clear: async () => ({ data: {} }),
       }},
     },
@@ -109,12 +109,32 @@ test('readOperators returns the fake names, and [] when api is null', async () =
   });
   assert.deepStrictEqual(await withApi.readOperators(), ['Sam', 'Ana']);
   assert.strictEqual(withApi.enabled, true);
+  // default range when tab/column/row not configured
+  assert.strictEqual(fg.calls.get[0].range, 'Drop Down options!B2:B');
 
   const noApi = createSheets({
     credentialsPath: '/nonexistent', eventStore: es, gameStore: gs, config: cfg,
   });
   assert.deepStrictEqual(await noApi.readOperators(), []);
   assert.strictEqual(noApi.enabled, false);
+});
+
+test('readOperators uses the configured tab / column / start row', async () => {
+  const es = createEventStore({ path: ':memory:' });
+  const gs = createGameStore(es.db);
+  const fg = fakeGoogle();
+  const cfg = { current: () => ({ sheets: {
+    operatorsSpreadsheetId: 'oid',
+    operatorsTabName: 'Staff List',
+    operatorsColumn: 'd',
+    operatorsStartRow: '5',
+  } }) };
+  const sheets = createSheets({
+    credentialsPath: '/nonexistent', eventStore: es, gameStore: gs,
+    config: cfg, googleFactory: () => fg.api,
+  });
+  await sheets.readOperators();
+  assert.strictEqual(fg.calls.get[0].range, 'Staff List!D5:D');
 });
 
 test('buildSessionRow shape matches HTM-Control-Basic column order', () => {

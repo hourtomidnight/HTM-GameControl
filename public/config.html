@@ -339,13 +339,33 @@
 
   <div class="card">
     <h2>Operators Dropdown</h2>
+    <p style="color:#667;font-size:12px;margin-bottom:12px;">
+      Optional. Reads a list of operator names from a Google Sheet and puts them in the operator picker
+      on the console. Leave the ID blank to just type names by hand.
+    </p>
     <div class="field-row">
       <label>Spreadsheet ID / URL</label>
       <input type="text" id="operators-spreadsheet-id"
-        title="Paste the full link to the Tracker spreadsheet (it needs a 'Drop Down options' tab with operator names in column B)."
-        placeholder="paste the Tracker Sheet link, or just the ID" />
+        title="Paste the full link to the Sheet that holds the operator-name list."
+        placeholder="paste the Sheet link, or just the ID" />
     </div>
-    <div class="hint-note">Optional. Reads operator names from column&nbsp;B (row&nbsp;2 down) of a tab named exactly <code>Drop Down options</code> and puts them in the operator picker on the console. Leave blank to type operator names by hand.</div>
+    <div class="field-row">
+      <label>Tab name</label>
+      <input type="text" id="operators-tab-name"
+        title="Exact name of the tab that holds the operator names."
+        placeholder="Drop Down options" />
+    </div>
+    <div class="field-row">
+      <label>Column</label>
+      <input type="text" id="operators-column" style="width:70px;flex:none;"
+        title="Which column the names are in — a single letter, e.g. B"
+        placeholder="B" maxlength="2" />
+      <label style="width:auto;margin-left:14px;">Start row</label>
+      <input type="number" id="operators-start-row" min="1" style="width:70px;"
+        title="First row that has a name (skip header rows)."
+        placeholder="2" />
+    </div>
+    <div class="hint-note">Defaults: tab <code>Drop Down options</code>, column <code>B</code>, starting row <code>2</code>. Reads that column downward and uses every non-empty cell.</div>
   </div>
 </div>
 
@@ -668,6 +688,9 @@ function populateForm(cfg) {
   document.getElementById('hints-tab-name').value = sh.hintsTabName || '';
   document.getElementById('hotkeys-tab-name').value = sh.hotkeysTabName || '';
   document.getElementById('operators-spreadsheet-id').value = sh.operatorsSpreadsheetId || '';
+  document.getElementById('operators-tab-name').value = sh.operatorsTabName || '';
+  document.getElementById('operators-column').value = sh.operatorsColumn || '';
+  document.getElementById('operators-start-row').value = sh.operatorsStartRow || '';
 
   const key = g.startStopKey || '';
   startStopCapture.dataset.key = key;
@@ -706,6 +729,9 @@ document.getElementById('save-btn').addEventListener('click', async () => {
     hintsTabName:            document.getElementById('hints-tab-name').value.trim(),
     hotkeysTabName:          document.getElementById('hotkeys-tab-name').value.trim(),
     operatorsSpreadsheetId:  extractSheetId(document.getElementById('operators-spreadsheet-id').value),
+    operatorsTabName:        document.getElementById('operators-tab-name').value.trim(),
+    operatorsColumn:         document.getElementById('operators-column').value.trim().toUpperCase().replace(/[^A-Z]/g, ''),
+    operatorsStartRow:       String(parseInt(document.getElementById('operators-start-row').value, 10) || '').trim(),
   };
 
   merged.hintGroups = readGroupsFromDOM();
