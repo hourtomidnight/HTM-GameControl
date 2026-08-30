@@ -3,10 +3,10 @@ const assert = require('node:assert');
 const { createEventStore } = require('../src/event-store');
 const { createGameStore } = require('../src/game-store');
 const stk = require('../src/session-tracker');
-const { createSheets, buildSessionRow, formatDuration } = require('../src/sheets');
+const { createSheets, buildSessionRow, formatDuration, buildHotkeysRows } = require('../src/sheets');
 
 function fakeGoogle() {
-  const calls = { append: [], update: [], get: [] };
+  const calls = { append: [], update: [], get: [], clear: [] };
   return {
     calls,
     api: {
@@ -15,7 +15,7 @@ function fakeGoogle() {
           return { data: { updates: { updatedRange: `${a.range.split('!')[0]}!A5:N5` } } }; },
         update: async (u) => { calls.update.push(u); return { data: {} }; },
         get: async (g) => { calls.get.push(g); return { data: { values: [['Sam'], ['Ana']] } }; },
-        clear: async () => ({ data: {} }),
+        clear: async (c) => { calls.clear.push(c); return { data: {} }; },
       }},
     },
   };
@@ -117,6 +117,53 @@ test('readOperators returns the fake names, and [] when api is null', async () =
   });
   assert.deepStrictEqual(await noApi.readOperators(), []);
   assert.strictEqual(noApi.enabled, false);
+});
+
+test('buildHotkeysRows flattens groups to [Group, Hint, Hotkey], skipping empty hints', () => {
+  const groups = [
+    { name: 'Puzzle 1', hints: [{ text: 'Look up', key: 'F1' }, { text: 'No key hint', key: '' }] },
+    { name: '', hints: [{ text: 'Orphan', key: 'F2' }] },
+    { name: 'Empty', hints: [{ text: '', key: 'F9' }] },
+  ];
+  assert.deepStrictEqual(buildHotkeysRows(groups), [
+    ['Puzzle 1', 'Look up', 'F1'],
+    ['Puzzle 1', 'No key hint', ''],
+    ['', 'Orphan', 'F2'],
+  ]);
+  assert.deepStrictEqual(buildHotkeysRows(undefined), []);
+});
+
+test('syncHotkeysTab clears A:C then writes header + one row per hint', async () => {
+  const es = createEventStore({ path: ':memory:' });
+  const gs = createGameStore(es.db);
+  const fg = fakeGoogle();
+  const cfg = { current: () => ({
+    sheets: { hintsSpreadsheetId: 'hid', hotkeysTabName: 'Hotkeys' },
+    hintGroups: [{ name: 'P1', hints: [{ text: 'a', key: 'F1' }, { text: 'b', key: '' }] }],
+  }) };
+  const sheets = createSheets({
+    credentialsPath: '/nonexistent', eventStore: es, gameStore: gs,
+    config: cfg, googleFactory: () => fg.api,
+  });
+  await sheets.syncHotkeysTab();
+  assert.strictEqual(fg.calls.clear[0].range, 'Hotkeys!A:C');
+  assert.strictEqual(fg.calls.update[0].range, 'Hotkeys!A1');
+  assert.deepStrictEqual(fg.calls.update[0].requestBody.values, [
+    ['Group', 'Hint', 'Hotkey'],
+    ['P1', 'a', 'F1'],
+    ['P1', 'b', ''],
+  ]);
+
+  // No-op when the tab name is unset
+  const fg2 = fakeGoogle();
+  const s2 = createSheets({
+    credentialsPath: '/nonexistent', eventStore: es, gameStore: gs,
+    config: { current: () => ({ sheets: { hintsSpreadsheetId: 'hid' }, hintGroups: [] }) },
+    googleFactory: () => fg2.api,
+  });
+  await s2.syncHotkeysTab();
+  assert.strictEqual(fg2.calls.clear.length, 0);
+  assert.strictEqual(fg2.calls.update.length, 0);
 });
 
 test('readOperators uses the configured tab / column / start row', async () => {

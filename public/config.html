@@ -290,6 +290,16 @@
       </table></div>
       <div class="hint-note" style="margin-left:0;">Example row: <code>2026-08-29 &nbsp; 3:22:10 PM &nbsp; Look under the rug &nbsp; 3:14:07 PM</code></div>
 
+      <p style="margin:14px 0 4px;"><b>Hotkeys tab</b> (optional, in the Hint Log sheet) — cleared and rewritten every time you Save this page:</p>
+      <div style="overflow-x:auto;"><table class="hotkey-table">
+        <thead><tr><th>A</th><th>B</th><th>C</th></tr></thead>
+        <tbody>
+          <tr><td>Group</td><td>Hint</td><td>Hotkey</td></tr>
+          <tr><td>Puzzle 1</td><td>Look under the rug</td><td>F1</td></tr>
+        </tbody>
+      </table></div>
+      <div class="hint-note" style="margin-left:0;">Row 1 is the header. One row per configured hint; Hotkey is blank if none is assigned.</div>
+
       <p style="margin:14px 0 4px;"><b>Operators tab</b> (in the Tracker sheet) — the app <i>reads</i> this, never writes it:</p>
       Names in <b>column B, starting at row 2</b>, on a tab named exactly <code>Drop Down options</code>. Those become the choices in the operator picker on the console.
     </div>
@@ -331,10 +341,10 @@
     <div class="field-row">
       <label>Hotkeys tab name</label>
       <input type="text" id="hotkeys-tab-name"
-        title="Not used yet (planned). Safe to leave blank."
-        placeholder="leave blank for now" />
+        title="A tab in the Hint Log sheet that gets rewritten with your hint list each time you Save: A=Group, B=Hint, C=Hotkey (row 1 = headers)."
+        placeholder="e.g. Hotkeys" />
     </div>
-    <div class="hint-note">Not wired up yet — a later version will mirror your hint hotkey list here. Leave blank.</div>
+    <div class="hint-note">Optional. On every Save, this tab (in the Hint Log sheet) is cleared and rewritten: <b>row 1</b> = <code>Group | Hint | Hotkey</code>, then one row per configured hint. Leave blank to skip.</div>
   </div>
 
   <div class="card">

@@ -188,6 +188,8 @@ function createWebServer(deps) {
       const result = config.save(body) || {};
       if (result.ok) {
         broadcast({ type: 'config-updated' });
+        // Best-effort: mirror the hint list to the Hotkeys tab (guarded, never throws).
+        try { Promise.resolve(sheets.syncHotkeysTab()).catch(() => {}); } catch {}
         res.writeHead(204); res.end();
       } else {
         sendJson(res, 400, { errors: result.errors || [] });

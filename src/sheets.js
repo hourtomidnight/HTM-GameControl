@@ -46,6 +46,17 @@ function buildHintRow(hintRecord, session) {
   ];
 }
 
+// Rows for the "Hotkeys" reference tab: A=Group, B=Hint, C=Hotkey (one row per hint).
+function buildHotkeysRows(hintGroups) {
+  const rows = [];
+  (hintGroups || []).forEach(g => {
+    (g.hints || []).forEach(h => {
+      if (h && h.text) rows.push([g.name || '', h.text, h.key || '']);
+    });
+  });
+  return rows;
+}
+
 function parseRowIndexFromUpdatedRange(r) {
   const m = r.match(/![A-Z]+(\d+):/);
   if (!m) throw new Error('Could not parse row index from range: ' + r);
@@ -126,14 +137,30 @@ function createSheets({ credentialsPath, config, eventStore, gameStore, googleFa
   });
   const readOperators = async (...args) => (await readOperatorsGuarded(...args)) ?? [];
 
+  // Rewrite the Hotkeys reference tab from the current hint config.
+  // Row 1 is the header; one row per configured hint.
+  const syncHotkeysTab = guard('syncHotkeysTab', async () => {
+    const c = cfg();
+    if (!c.hintsSpreadsheetId || !c.hotkeysTabName) return;
+    const rows = buildHotkeysRows(config.current().hintGroups);
+    await api.spreadsheets.values.clear({
+      spreadsheetId: c.hintsSpreadsheetId, range: `${c.hotkeysTabName}!A:C`,
+    });
+    await api.spreadsheets.values.update({
+      spreadsheetId: c.hintsSpreadsheetId, range: `${c.hotkeysTabName}!A1`,
+      valueInputOption: 'RAW',
+      requestBody: { values: [['Group', 'Hint', 'Hotkey'], ...rows] },
+    });
+  });
+
   return {
     enabled: api !== null,
-    onGameStart, onSessionSync, onHint, readOperators,
-    buildSessionRow, buildHintRow, formatDuration, formatNetAdjustment,
+    onGameStart, onSessionSync, onHint, readOperators, syncHotkeysTab,
+    buildSessionRow, buildHintRow, buildHotkeysRows, formatDuration, formatNetAdjustment,
   };
 }
 
 module.exports = {
-  createSheets, buildSessionRow, buildHintRow,
+  createSheets, buildSessionRow, buildHintRow, buildHotkeysRows,
   formatDuration, formatNetAdjustment, parseRowIndexFromUpdatedRange,
 };
