@@ -13,14 +13,47 @@
       font-size: 13px;
       height: 100vh;
       display: grid;
-      grid-template-rows: auto 1fr;
+      grid-template-rows: auto 1fr var(--notes-h, 150px);
       grid-template-columns: var(--left-w, 300px) 6px 1fr;
-      grid-template-areas: "timer timer timer" "ctrl divider hints";
+      grid-template-areas:
+        "timer timer   timer"
+        "ctrl  divider hints"
+        "notes notes   notes";
       overflow: hidden;
     }
 
     /* Grid children must be allowed to shrink so the tracks honor their sizes */
     #ctrl-panel, #hints-panel { min-width: 0; }
+
+    /* ── Bottom notes panel (drag its top edge to resize) ── */
+    #notes-panel {
+      grid-area: notes;
+      display: flex; flex-direction: column;
+      background: #0f0f22;
+      border-top: 2px solid #1e1e4a;
+      min-height: 0;
+    }
+    #notes-drag {
+      height: 10px; flex: none; cursor: row-resize;
+      background: #16163a;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.12s;
+    }
+    #notes-drag::before {
+      content: ''; width: 48px; height: 3px; border-radius: 2px; background: #45457a;
+    }
+    #notes-drag:hover, #notes-drag.dragging { background: #3535aa; }
+    #notes-panel .notes-hdr {
+      font-size: 10px; color: #667; text-transform: uppercase;
+      letter-spacing: 2px; padding: 6px 14px 0;
+    }
+    #notes-input {
+      flex: 1; margin: 5px 12px 12px; resize: none; min-height: 0;
+      background: #0f3460; border: 1px solid #1a4a80; color: #fff;
+      border-radius: 6px; padding: 8px 11px; font-size: 14px; line-height: 1.45;
+      font-family: Arial, sans-serif;
+    }
+    body.row-resizing { cursor: row-resize; user-select: none; }
 
     /* Draggable column divider */
     #col-divider {
@@ -283,10 +316,6 @@
       <label>Experienced players</label>
       <input type="number" id="experienced-players-input" min="0" value="0" style="width:60px;" />
     </div>
-    <div class="field-row">
-      <label>Notes</label>
-      <textarea id="notes-input" rows="3" style="flex:1;background:#0f3460;border:1px solid #1a4a80;color:#fff;border-radius:6px;padding:5px 9px;"></textarea>
-    </div>
   </div>
 
   <div class="ctrl-section">
@@ -329,6 +358,13 @@
   </div>
 </div>
 
+<!-- Bottom notes panel -->
+<div id="notes-panel">
+  <div id="notes-drag" title="Drag to resize · double-click to reset"></div>
+  <div class="notes-hdr">Notes</div>
+  <textarea id="notes-input" placeholder="Session notes…"></textarea>
+</div>
+
 <script>
   // Draggable left/right column split, persisted per browser.
   (function () {
@@ -364,6 +400,45 @@
     divider.addEventListener('pointercancel', end);
     divider.addEventListener('dblclick', function () {
       document.body.style.removeProperty('--left-w');
+      try { localStorage.removeItem(KEY); } catch (e) {}
+    });
+  })();
+
+  // Draggable bottom notes panel height, persisted per browser.
+  (function () {
+    var KEY = 'htm-op-notes-h', MIN = 46;
+    var handle = document.getElementById('notes-drag');
+    function maxH() { return Math.round(window.innerHeight * 0.72); }
+    function setH(px) {
+      px = Math.max(MIN, Math.min(maxH(), px));
+      document.body.style.setProperty('--notes-h', px + 'px');
+      return px;
+    }
+    try { var saved = parseInt(localStorage.getItem(KEY), 10); if (saved) setH(saved); } catch (e) {}
+    var dragging = false;
+    handle.addEventListener('pointerdown', function (e) {
+      dragging = true;
+      handle.classList.add('dragging');
+      document.body.classList.add('row-resizing');
+      handle.setPointerCapture(e.pointerId);
+      e.preventDefault();
+    });
+    handle.addEventListener('pointermove', function (e) {
+      if (!dragging) return;
+      setH(window.innerHeight - e.clientY);
+    });
+    function end() {
+      if (!dragging) return;
+      dragging = false;
+      handle.classList.remove('dragging');
+      document.body.classList.remove('row-resizing');
+      var h = parseInt(getComputedStyle(document.body).getPropertyValue('--notes-h'), 10);
+      try { if (h) localStorage.setItem(KEY, String(h)); } catch (e) {}
+    }
+    handle.addEventListener('pointerup', end);
+    handle.addEventListener('pointercancel', end);
+    handle.addEventListener('dblclick', function () {
+      document.body.style.removeProperty('--notes-h');
       try { localStorage.removeItem(KEY); } catch (e) {}
     });
   })();
