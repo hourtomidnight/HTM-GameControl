@@ -57,6 +57,22 @@ function buildHotkeysRows(hintGroups) {
   return rows;
 }
 
+// Rows for the "Hotkeys" reference tab, sourced from the new steps/hints model:
+// A=Group(step name), B=Hint(label for audio / text for text, falling back to
+// mediaRef when no label is set), C=Hotkey. Steps with no hints contribute nothing.
+function buildHotkeysRowsFromSteps(steps) {
+  const rows = [];
+  (steps || []).forEach(step => {
+    (step.hints || []).forEach(h => {
+      if (!h) return;
+      const hintText = h.type === 'audio' ? (h.label || h.mediaRef || '') : (h.text || '');
+      if (!hintText) return;
+      rows.push([step.name || '', hintText, h.key || '']);
+    });
+  });
+  return rows;
+}
+
 function parseRowIndexFromUpdatedRange(r) {
   const m = r.match(/![A-Z]+(\d+):/);
   if (!m) throw new Error('Could not parse row index from range: ' + r);
@@ -205,7 +221,7 @@ function createSheets({ credentialsPath, config, eventStore, gameStore, googleFa
     const c = cfg();
     if (!c.hintsSpreadsheetId) return;
     const tab = c.hotkeysTabName || 'Hotkeys';
-    const rows = buildHotkeysRows(config.current().hintGroups);
+    const rows = buildHotkeysRowsFromSteps(config.current().steps);
     await ensureTab(c.hintsSpreadsheetId, tab);
     await withRetry(() => api.spreadsheets.values.clear({
       spreadsheetId: c.hintsSpreadsheetId, range: `${tab}!A:C`,
@@ -220,11 +236,11 @@ function createSheets({ credentialsPath, config, eventStore, gameStore, googleFa
   return {
     enabled: api !== null,
     onGameStart, onSessionSync, onHint, readOperators, readHotkeys, listTabs, syncHotkeysTab,
-    buildSessionRow, buildHintRow, buildHotkeysRows, formatDuration, formatNetAdjustment,
+    buildSessionRow, buildHintRow, buildHotkeysRows, buildHotkeysRowsFromSteps, formatDuration, formatNetAdjustment,
   };
 }
 
 module.exports = {
-  createSheets, buildSessionRow, buildHintRow, buildHotkeysRows,
+  createSheets, buildSessionRow, buildHintRow, buildHotkeysRows, buildHotkeysRowsFromSteps,
   formatDuration, formatNetAdjustment, parseRowIndexFromUpdatedRange,
 };
