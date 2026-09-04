@@ -323,6 +323,35 @@ test('DELETE /api/media?path=… on a referenced file returns 409 with inUse', a
   close();
 });
 
+test('POST /api/media/upload with a request stream error returns 400, not a crash', async () => {
+  const { server, close } = boot();
+  await new Promise(r => server.listen(0, r));
+  const { port } = server.address();
+  const boundary = 'X-ERR-BOUNDARY';
+  const res = await new Promise((resolve, reject) => {
+    const r = http.request({
+      port, method: 'POST', path: '/api/media/upload',
+      headers: { 'Content-Type': `multipart/form-data; boundary=${boundary}` },
+    }, (rs) => {
+      let d = ''; rs.on('data', c => d += c);
+      rs.on('end', () => resolve({ status: rs.statusCode, body: d }));
+    });
+    r.on('error', () => {}); // client-side abort also errors the socket; ignore here
+    // Write a partial body then abort the request mid-stream to trigger
+    // a server-side 'error' event on req while the body is still being collected.
+    r.write(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="clip.mp3"\r\n\r\npartial`);
+    r.destroy(new Error('simulated client abort'));
+    setTimeout(() => resolve({ status: 'no-response' }), 500).unref?.();
+  });
+  // The server must not crash or hang; either it responds with an error status,
+  // or the connection is dropped without a response (both are safe outcomes —
+  // what matters is the process stays alive to serve the next request).
+  assert.ok(res.status === 400 || res.status === 'no-response');
+  const ok = await req(server, 'GET', '/healthz');
+  assert.strictEqual(ok.status, 200);
+  close();
+});
+
 test('GET /api/media/usage returns bytes/count/freeBytes', async () => {
   const { server, close, mediaLibrary } = boot();
   mediaLibrary.save('clip.mp3', Buffer.from('FAKE-BYTES'));

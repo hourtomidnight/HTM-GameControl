@@ -283,15 +283,20 @@ function createWebServer(deps) {
       const chunks = [];
       let total = 0;
       let tooBig = false;
-      await new Promise((resolve, reject) => {
-        req.on('data', (c) => {
-          total += c.length;
-          if (total > MAX_BYTES) { tooBig = true; return; }
-          chunks.push(c);
+      try {
+        await new Promise((resolve, reject) => {
+          req.on('data', (c) => {
+            total += c.length;
+            if (total > MAX_BYTES) { tooBig = true; return; }
+            chunks.push(c);
+          });
+          req.on('end', resolve);
+          req.on('error', reject);
         });
-        req.on('end', resolve);
-        req.on('error', reject);
-      });
+      } catch (e) {
+        sendJson(res, 400, { error: 'upload stream error: ' + e.message });
+        return;
+      }
       if (tooBig) { sendJson(res, 413, { error: 'file too large (50MB cap)' }); return; }
       try {
         const body = Buffer.concat(chunks);
