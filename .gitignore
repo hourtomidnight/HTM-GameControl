@@ -5,6 +5,7 @@ google-credentials.json
 *.db
 *.db-wal
 *.db-shm
+media/
 .superpowers/
 public/assets/*
 !public/assets/.gitkeep
