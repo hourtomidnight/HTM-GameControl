@@ -71,6 +71,7 @@ const { server } = createWebServer({
   eventStore,
   gameStore,
   mediaLibrary,
+  mediaRoot: MEDIA_ROOT,
   publicDir: path.join(DIR, 'public'),
   port: PORT,
 });

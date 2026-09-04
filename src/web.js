@@ -5,6 +5,7 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const { parseMultipart } = require('./multipart');
+const { resolveSafe } = require('./media-library');
 
 const MIME = {
   '.html': 'text/html',
@@ -19,6 +20,7 @@ const MIME = {
   '.ico': 'image/x-icon',
   '.mp3': 'audio/mpeg',
   '.wav': 'audio/wav',
+  '.ogg': 'audio/ogg',
   '.woff': 'font/woff',
   '.woff2': 'font/woff2',
   '.txt': 'text/plain',
@@ -54,12 +56,13 @@ function toInt(v) {
 function createWebServer(deps) {
   const {
     engine, config, sheets, signalBus, eventStore, gameStore, publicDir,
-    mediaLibrary,
+    mediaLibrary, mediaRoot,
     port = 0,
   } = deps;
 
   void port; // accepted as informational metadata only — the factory NEVER listens
   const ROOT = path.resolve(publicDir);
+  const MEDIA_ROOT = mediaRoot ? path.resolve(mediaRoot) : null;
   const clients = new Set();
 
   function broadcast(obj) {
@@ -331,7 +334,18 @@ function createWebServer(deps) {
       try {
         const body = JSON.parse(await readBody(req) || '{}');
         const result = mediaLibrary.move(body.from, body.to);
-        if (result.refsChanged > 0) config.save(config.current());
+        // NOTE: mediaLibrary.move() mutates hint.mediaRef in place on the same
+        // object graph config.current() returns — the in-memory config already
+        // reflects the rename before config.save() below is even called. If
+        // save() fails validation here, in-memory state has still diverged
+        // from disk; surface that as a failure rather than a bare 200.
+        if (result.refsChanged > 0) {
+          const saved = config.save(config.current()) || {};
+          if (!saved.ok) {
+            sendJson(res, 500, { error: 'media moved but config save failed', errors: saved.errors || [] });
+            return;
+          }
+        }
         sendJson(res, 200, result);
       } catch (e) {
         const status = e.code === 'not-found' ? 404 : e.code === 'exists' ? 409 : e.code === 'bad-path' ? 400 : 500;
@@ -342,14 +356,34 @@ function createWebServer(deps) {
 
     // ── DELETE /api/media?path=... ──────────────────────────────────────
     if (url === '/api/media' && req.method === 'DELETE') {
+      const pathParam = q.get('path');
+      if (!pathParam) { sendJson(res, 400, { error: 'missing path' }); return; }
       try {
-        const result = mediaLibrary.remove(q.get('path'));
+        const result = mediaLibrary.remove(pathParam);
         sendJson(res, 200, result);
       } catch (e) {
         if (e.code === 'in-use') { sendJson(res, 409, { error: e.message, inUse: e.inUse }); return; }
         const status = e.code === 'not-found' ? 404 : e.code === 'bad-path' ? 400 : 500;
         sendJson(res, status, { error: e.message });
       }
+      return;
+    }
+
+    // ── GET /media/<relPath> — serve media bytes (e.g. <audio> preview) ──
+    if (url.startsWith('/media/') && req.method === 'GET') {
+      if (!MEDIA_ROOT) { res.writeHead(404); res.end('Not found'); return; }
+      let decoded;
+      try { decoded = decodeURIComponent(url.slice('/media/'.length)); }
+      catch { res.writeHead(400); res.end('Bad request'); return; }
+      let filePath;
+      try { filePath = resolveSafe(MEDIA_ROOT, decoded); }
+      catch { res.writeHead(404); res.end('Not found'); return; }
+      fs.readFile(filePath, (err, data) => {
+        if (err) { res.writeHead(404); res.end('Not found: ' + url); return; }
+        const ext = path.extname(filePath).toLowerCase();
+        res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream' });
+        res.end(data);
+      });
       return;
     }
 

@@ -23,7 +23,7 @@ function boot(overrides = {}) {
     db: es.db, root: mediaRoot, steps: overrides.steps || (() => []),
   });
   const { server, close } = createWebServer({ engine, config: cfg, sheets, signalBus,
-    eventStore: es, gameStore: gs, mediaLibrary, publicDir: __dirname + '/../public', port: 0 });
+    eventStore: es, gameStore: gs, mediaLibrary, mediaRoot, publicDir: __dirname + '/../public', port: 0 });
   return { server, close, es, gs, mediaLibrary, mediaRoot };
 }
 
@@ -349,6 +349,94 @@ test('POST /api/media/upload with a request stream error returns 400, not a cras
   assert.ok(res.status === 400 || res.status === 'no-response');
   const ok = await req(server, 'GET', '/healthz');
   assert.strictEqual(ok.status, 200);
+  close();
+});
+
+test('GET /media/<relPath> serves the file bytes', async () => {
+  const { server, close, mediaLibrary } = boot();
+  mediaLibrary.save('clip.mp3', Buffer.from('FAKE-MP3-BYTES'));
+  await new Promise(r => server.listen(0, r));
+  const res = await req(server, 'GET', '/media/clip.mp3');
+  assert.strictEqual(res.status, 200);
+  assert.strictEqual(res.body, 'FAKE-MP3-BYTES');
+  close();
+});
+
+test('GET /media/<relPath> 404s for a missing file', async () => {
+  const { server, close } = boot();
+  await new Promise(r => server.listen(0, r));
+  const res = await req(server, 'GET', '/media/nope.mp3');
+  assert.strictEqual(res.status, 404);
+  close();
+});
+
+test('GET /media/<relPath> 404s on a path-traversal attempt', async () => {
+  const { server, close } = boot();
+  await new Promise(r => server.listen(0, r));
+  const res = await req(server, 'GET', '/media/..%2f..%2fpackage.json');
+  assert.strictEqual(res.status, 404);
+  close();
+});
+
+test('POST /api/media/meta sets title/tags and returns 200', async () => {
+  const { server, close, mediaLibrary } = boot();
+  mediaLibrary.save('clip.mp3', Buffer.from('FAKE'));
+  await new Promise(r => server.listen(0, r));
+  const res = await req(server, 'POST', '/api/media/meta', { path: 'clip.mp3', title: 'Clue 1', tags: 'a,b' });
+  assert.strictEqual(res.status, 200);
+  const body = JSON.parse(res.body);
+  assert.strictEqual(body.path, 'clip.mp3');
+  assert.strictEqual(body.title, 'Clue 1');
+  const file = mediaLibrary.list().find(f => f.path === 'clip.mp3');
+  assert.strictEqual(file.title, 'Clue 1');
+  assert.strictEqual(file.tags, 'a,b');
+  close();
+});
+
+test('POST /api/media/move renames the file, rewrites mediaRef, and persists config', async () => {
+  const steps = [{ id: 'step1', hints: [{ type: 'audio', mediaRef: 'clip.mp3' }] }];
+  let saved = null;
+  const cfg = {
+    current: () => ({ steps }),
+    save: (o) => { saved = o; return { ok: true, errors: [] }; },
+  };
+  const { server, close, mediaLibrary } = boot({ config: cfg, steps: () => steps });
+  mediaLibrary.save('clip.mp3', Buffer.from('FAKE'));
+  await new Promise(r => server.listen(0, r));
+  const res = await req(server, 'POST', '/api/media/move', { from: 'clip.mp3', to: 'renamed.mp3' });
+  assert.strictEqual(res.status, 200);
+  const body = JSON.parse(res.body);
+  assert.strictEqual(body.path, 'renamed.mp3');
+  assert.strictEqual(body.refsChanged, 1);
+  assert.strictEqual(steps[0].hints[0].mediaRef, 'renamed.mp3');
+  assert.ok(saved, 'config.save was called');
+  assert.strictEqual(saved.steps[0].hints[0].mediaRef, 'renamed.mp3');
+  close();
+});
+
+test('POST /api/media/move returns 500 with errors when config.save fails', async () => {
+  const steps = [{ id: 'step1', hints: [{ type: 'audio', mediaRef: 'clip.mp3' }] }];
+  const cfg = {
+    current: () => ({ steps }),
+    save: () => ({ ok: false, errors: ['bad config'] }),
+  };
+  const { server, close, mediaLibrary } = boot({ config: cfg, steps: () => steps });
+  mediaLibrary.save('clip.mp3', Buffer.from('FAKE'));
+  await new Promise(r => server.listen(0, r));
+  const res = await req(server, 'POST', '/api/media/move', { from: 'clip.mp3', to: 'renamed.mp3' });
+  assert.strictEqual(res.status, 500);
+  const body = JSON.parse(res.body);
+  assert.deepStrictEqual(body.errors, ['bad config']);
+  close();
+});
+
+test('DELETE /api/media with missing path returns 400', async () => {
+  const { server, close } = boot();
+  await new Promise(r => server.listen(0, r));
+  const res = await req(server, 'DELETE', '/api/media');
+  assert.strictEqual(res.status, 400);
+  const body = JSON.parse(res.body);
+  assert.strictEqual(body.error, 'missing path');
   close();
 });
 
