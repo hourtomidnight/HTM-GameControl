@@ -26,13 +26,15 @@ function migrateHintGroupsToSteps(cfg) {
   const groups = Array.isArray(cfg.hintGroups) ? cfg.hintGroups : [];
   const steps = groups.map((g, i) => {
     const stepId = 'step_' + (i + 1);
-    const hints = (g.hints || []).map((h, j) => ({
-      id: stepId + '_h' + (j + 1),
-      type: 'text',
-      text: h.text || '',
-      key: h.key || '',
-      countsAsClue: true,
-    }));
+    const hints = (g.hints || [])
+      .filter(h => h && typeof h.text === 'string' && h.text.trim() !== '')
+      .map((h, j) => ({
+        id: stepId + '_h' + (j + 1),
+        type: 'text',
+        text: h.text,
+        key: h.key || '',
+        countsAsClue: true,
+      }));
     return {
       id: stepId,
       name: g.name || ('Group ' + (i + 1)),
@@ -47,6 +49,8 @@ function migrateHintGroupsToSteps(cfg) {
     sections: cfg.sections || [],
     steps,
     progress: cfg.progress || { flags: [] },
+    // Seeded once from game.volume at migration time; after this, game.volume
+    // and audio.volume are independent fields with no ongoing sync — they can diverge.
     audio: cfg.audio || defaultAudio(cfg.game && cfg.game.volume),
   };
 

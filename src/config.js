@@ -14,9 +14,15 @@ function createConfig({ path, db, now = () => Date.now() }) {
 
     if (migrated) {
       try {
-        fs.writeFileSync(path, JSON.stringify(cache, null, 2));
-        db.prepare('INSERT INTO config_history (ts, json) VALUES (?, ?)')
-          .run(now(), JSON.stringify(cache));
+        if (validateConfig(cache).ok) {
+          fs.writeFileSync(path, JSON.stringify(cache, null, 2));
+          db.prepare('INSERT INTO config_history (ts, json) VALUES (?, ?)')
+            .run(now(), JSON.stringify(cache));
+        }
+        // else: leave hintGroups on disk unchanged so a future correct
+        // migration attempt can still run; the in-memory migrated cache is
+        // still returned below, and the caller's own validateConfig() will
+        // surface the error.
       } catch { /* best-effort — the in-memory migrated cache is still returned */ }
     }
 

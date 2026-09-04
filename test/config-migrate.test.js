@@ -49,6 +49,18 @@ test('carries over an existing game.volume as the audio default when present', (
   assert.strictEqual(cfg.audio.volume, 0.7);
 });
 
+test('drops hints with empty or whitespace-only text instead of migrating them', () => {
+  const { cfg } = migrateHintGroupsToSteps({
+    hintGroups: [{ name: 'Briefcase', hints: [
+      { text: 'Look at the calendar', key: 'F1' },
+      { text: '', key: 'F2' },
+      { text: '   ', key: 'F3' },
+    ] }],
+  });
+  assert.strictEqual(cfg.steps[0].hints.length, 1);
+  assert.strictEqual(cfg.steps[0].hints[0].text, 'Look at the calendar');
+});
+
 test('is a no-op when steps already exists', () => {
   const already = { hintGroups: [{ name: 'X', hints: [] }], steps: [{ id: 's1', name: 'X', order: 1, hints: [] }] };
   const { cfg, migrated } = migrateHintGroupsToSteps(already);

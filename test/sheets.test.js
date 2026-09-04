@@ -158,6 +158,13 @@ test('buildHotkeysRowsFromSteps flattens steps into [stepName, hintLabel, hotkey
       id: 'step_3', name: 'No label audio', order: 3,
       hints: [{ id: 'h3', type: 'audio', mediaRef: 'x/y.mp3', key: 'F9' }],
     },
+    {
+      id: 'step_4', name: 'No usable text', order: 4,
+      hints: [
+        { id: 'h4', type: 'text', text: '', key: 'F5' },
+        { id: 'h5', type: 'audio', key: 'F6' }, // no label, no mediaRef
+      ],
+    },
   ];
   assert.deepStrictEqual(buildHotkeysRowsFromSteps(steps), [
     ['Briefcase', 'Look at the calendar', 'F1'],
@@ -168,17 +175,16 @@ test('buildHotkeysRowsFromSteps flattens steps into [stepName, hintLabel, hotkey
   assert.deepStrictEqual(buildHotkeysRowsFromSteps([]), []);
 });
 
-test('syncHotkeysTab sources its rows from config.steps, not hintGroups', async () => {
+test('syncHotkeysTab sources its rows from config.hintGroups, not steps', async () => {
   const es = createEventStore({ path: ':memory:' });
   const gs = createGameStore(es.db);
   const fg = fakeGoogle();
   const cfg = { current: () => ({
     sheets: { hintsSpreadsheetId: 'hid' },
-    hintGroups: [{ name: 'STALE — should be ignored', hints: [{ text: 'old', key: '' }] }],
+    hintGroups: [{ name: 'Briefcase', hints: [{ text: 'a', key: 'F1' }] }],
     steps: [
-      { id: 'step_1', name: 'Briefcase', order: 1, hints: [
-        { id: 'h1', type: 'text', text: 'a', key: 'F1' },
-        { id: 'h2', type: 'audio', mediaRef: 'x.mp3', label: 'b', key: '' },
+      { id: 'step_1', name: 'STALE — should be ignored', order: 1, hints: [
+        { id: 'h1', type: 'text', text: 'old', key: 'F9' },
       ] },
     ],
   }) };
@@ -190,7 +196,6 @@ test('syncHotkeysTab sources its rows from config.steps, not hintGroups', async 
   assert.deepStrictEqual(fg.calls.update[0].requestBody.values, [
     ['Group', 'Hint', 'Hotkey'],
     ['Briefcase', 'a', 'F1'],
-    ['Briefcase', 'b', ''],
   ]);
 });
 
@@ -200,9 +205,9 @@ test('syncHotkeysTab clears A:C then writes header + one row per hint', async ()
   const fg = fakeGoogle();
   const cfg = { current: () => ({
     sheets: { hintsSpreadsheetId: 'hid', hotkeysTabName: 'Hotkeys' },
-    steps: [{ id: 'step_1', name: 'P1', order: 1, hints: [
-      { id: 'h1', type: 'text', text: 'a', key: 'F1' },
-      { id: 'h2', type: 'text', text: 'b', key: '' },
+    hintGroups: [{ name: 'P1', hints: [
+      { text: 'a', key: 'F1' },
+      { text: 'b', key: '' },
     ] }],
   }) };
   const sheets = createSheets({
@@ -224,7 +229,7 @@ test('syncHotkeysTab clears A:C then writes header + one row per hint', async ()
   const fg2 = fakeGoogle();
   const s2 = createSheets({
     credentialsPath: '/nonexistent', eventStore: es, gameStore: gs,
-    config: { current: () => ({ sheets: { hintsSpreadsheetId: 'hid' }, steps: [] }) },
+    config: { current: () => ({ sheets: { hintsSpreadsheetId: 'hid' }, hintGroups: [] }) },
     googleFactory: () => fg2.api,
   });
   await s2.syncHotkeysTab();
@@ -236,7 +241,7 @@ test('syncHotkeysTab clears A:C then writes header + one row per hint', async ()
   fg4.api.spreadsheets.get = async () => ({ data: { sheets: [{ properties: { title: 'Hotkeys' } }] } });
   const s4 = createSheets({
     credentialsPath: '/nonexistent', eventStore: es, gameStore: gs,
-    config: { current: () => ({ sheets: { hintsSpreadsheetId: 'hid' }, steps: [] }) },
+    config: { current: () => ({ sheets: { hintsSpreadsheetId: 'hid' }, hintGroups: [] }) },
     googleFactory: () => fg4.api,
   });
   await s4.syncHotkeysTab();

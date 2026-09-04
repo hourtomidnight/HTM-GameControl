@@ -221,7 +221,7 @@ function createSheets({ credentialsPath, config, eventStore, gameStore, googleFa
     const c = cfg();
     if (!c.hintsSpreadsheetId) return;
     const tab = c.hotkeysTabName || 'Hotkeys';
-    const rows = buildHotkeysRowsFromSteps(config.current().steps);
+    const rows = buildHotkeysRows(config.current().hintGroups);
     await ensureTab(c.hintsSpreadsheetId, tab);
     await withRetry(() => api.spreadsheets.values.clear({
       spreadsheetId: c.hintsSpreadsheetId, range: `${tab}!A:C`,

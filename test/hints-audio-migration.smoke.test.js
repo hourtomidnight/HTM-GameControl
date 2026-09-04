@@ -22,7 +22,7 @@ function fakeGoogleApi(calls) {
 }
 
 test('an old-shape config on disk migrates, validates, and syncs to the Hotkeys tab', () => {
-  const p = path.join(os.tmpdir(), 'htm-migration-smoke-' + Date.now() + '.json');
+  const p = path.join(os.tmpdir(), 'htm-migration-smoke-' + Date.now() + '-' + Math.random().toString(36).slice(2) + '.json');
   fs.writeFileSync(p, JSON.stringify({
     roomName: 'Nibiru Brain',
     game: { timerMinutes: 60, volume: 0.5 },
@@ -56,6 +56,7 @@ test('an old-shape config on disk migrates, validates, and syncs to the Hotkeys 
       ['Briefcase', 'Look at the calendar', 'F1'],
       ['Chessboard', 'Only white pieces move', ''],
     ]);
+  }).finally(() => {
     fs.unlinkSync(p);
   });
 });
