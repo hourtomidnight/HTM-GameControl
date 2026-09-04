@@ -4,6 +4,7 @@
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
+const { parseMultipart } = require('./multipart');
 
 const MIME = {
   '.html': 'text/html',
@@ -53,6 +54,7 @@ function toInt(v) {
 function createWebServer(deps) {
   const {
     engine, config, sheets, signalBus, eventStore, gameStore, publicDir,
+    mediaLibrary,
     port = 0,
   } = deps;
 
@@ -258,6 +260,91 @@ function createWebServer(deps) {
       let sheetsOk = false;
       try { sheetsOk = !!(sheets && sheets.enabled); } catch { sheetsOk = false; }
       sendJson(res, 200, { ok: true, uptime: process.uptime(), sheets: sheetsOk, db: true });
+      return;
+    }
+
+    // ── GET /api/media ──────────────────────────────────────────────────
+    if (url === '/api/media' && req.method === 'GET') {
+      try { sendJson(res, 200, { files: mediaLibrary.list() }); }
+      catch (e) { sendJson(res, 500, { error: e.message }); }
+      return;
+    }
+
+    // ── GET /api/media/usage ────────────────────────────────────────────
+    if (url === '/api/media/usage' && req.method === 'GET') {
+      try { sendJson(res, 200, mediaLibrary.usage()); }
+      catch (e) { sendJson(res, 500, { error: e.message }); }
+      return;
+    }
+
+    // ── POST /api/media/upload ──────────────────────────────────────────
+    if (url === '/api/media/upload' && req.method === 'POST') {
+      const MAX_BYTES = 50 * 1024 * 1024;
+      const chunks = [];
+      let total = 0;
+      let tooBig = false;
+      await new Promise((resolve, reject) => {
+        req.on('data', (c) => {
+          total += c.length;
+          if (total > MAX_BYTES) { tooBig = true; return; }
+          chunks.push(c);
+        });
+        req.on('end', resolve);
+        req.on('error', reject);
+      });
+      if (tooBig) { sendJson(res, 413, { error: 'file too large (50MB cap)' }); return; }
+      try {
+        const body = Buffer.concat(chunks);
+        const { fields, files } = parseMultipart(body, req.headers['content-type']);
+        if (!files.file) { sendJson(res, 400, { error: 'missing "file" field' }); return; }
+        const folder = (fields.folder || '').replace(/^[/\\]+|[/\\]+$/g, '');
+        const relPath = folder ? path.join(folder, files.file.filename) : files.file.filename;
+        const result = mediaLibrary.save(relPath, files.file.buffer);
+        sendJson(res, 200, result);
+      } catch (e) {
+        const status = e.code === 'bad-path' || e.code === 'bad-ext' ? 400 : 500;
+        sendJson(res, status, { error: e.message });
+      }
+      return;
+    }
+
+    // ── POST /api/media/meta ────────────────────────────────────────────
+    if (url === '/api/media/meta' && req.method === 'POST') {
+      try {
+        const body = JSON.parse(await readBody(req) || '{}');
+        const result = mediaLibrary.setMeta(body.path, { title: body.title, tags: body.tags });
+        sendJson(res, 200, result);
+      } catch (e) {
+        const status = e.code === 'not-found' ? 404 : e.code === 'bad-path' ? 400 : 500;
+        sendJson(res, status, { error: e.message });
+      }
+      return;
+    }
+
+    // ── POST /api/media/move ────────────────────────────────────────────
+    if (url === '/api/media/move' && req.method === 'POST') {
+      try {
+        const body = JSON.parse(await readBody(req) || '{}');
+        const result = mediaLibrary.move(body.from, body.to);
+        if (result.refsChanged > 0) config.save(config.current());
+        sendJson(res, 200, result);
+      } catch (e) {
+        const status = e.code === 'not-found' ? 404 : e.code === 'exists' ? 409 : e.code === 'bad-path' ? 400 : 500;
+        sendJson(res, status, { error: e.message });
+      }
+      return;
+    }
+
+    // ── DELETE /api/media?path=... ──────────────────────────────────────
+    if (url === '/api/media' && req.method === 'DELETE') {
+      try {
+        const result = mediaLibrary.remove(q.get('path'));
+        sendJson(res, 200, result);
+      } catch (e) {
+        if (e.code === 'in-use') { sendJson(res, 409, { error: e.message, inUse: e.inUse }); return; }
+        const status = e.code === 'not-found' ? 404 : e.code === 'bad-path' ? 400 : 500;
+        sendJson(res, status, { error: e.message });
+      }
       return;
     }
 

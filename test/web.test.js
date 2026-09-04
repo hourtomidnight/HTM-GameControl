@@ -1,9 +1,13 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 const http = require('node:http');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 const { createEventStore } = require('../src/event-store');
 const { createGameStore } = require('../src/game-store');
 const { createGameEngine } = require('../src/game-engine');
+const { createMediaLibrary } = require('../src/media-library');
 const { createWebServer } = require('../src/web');
 
 function boot(overrides = {}) {
@@ -14,9 +18,42 @@ function boot(overrides = {}) {
   const cfg = overrides.config || { current: () => ({ roomName: 'X' }), save: (o) => ({ ok: true, errors: [] }) };
   const sheets = overrides.sheets || { readOperators: async () => ['Sam'] };
   const signalBus = overrides.signalBus || { snapshot: () => ({}), on: () => {}, off: () => {} };
+  const mediaRoot = overrides.mediaRoot || fs.mkdtempSync(path.join(os.tmpdir(), 'media-'));
+  const mediaLibrary = overrides.mediaLibrary || createMediaLibrary({
+    db: es.db, root: mediaRoot, steps: overrides.steps || (() => []),
+  });
   const { server, close } = createWebServer({ engine, config: cfg, sheets, signalBus,
-    eventStore: es, gameStore: gs, publicDir: __dirname + '/../public', port: 0 });
-  return { server, close, es, gs };
+    eventStore: es, gameStore: gs, mediaLibrary, publicDir: __dirname + '/../public', port: 0 });
+  return { server, close, es, gs, mediaLibrary, mediaRoot };
+}
+
+function buildMultipart(boundary, parts) {
+  const CRLF = '\r\n';
+  let body = '';
+  for (const p of parts) {
+    body += `--${boundary}${CRLF}`;
+    if (p.filename !== undefined) {
+      body += `Content-Disposition: form-data; name="${p.name}"; filename="${p.filename}"${CRLF}`;
+      body += `Content-Type: ${p.contentType || 'application/octet-stream'}${CRLF}${CRLF}`;
+    } else {
+      body += `Content-Disposition: form-data; name="${p.name}"${CRLF}${CRLF}`;
+    }
+    body += p.content + CRLF;
+  }
+  body += `--${boundary}--${CRLF}`;
+  return Buffer.from(body, 'binary');
+}
+
+function reqRaw(server, method, urlPath, buf, headers) {
+  const { port } = server.address();
+  return new Promise((resolve) => {
+    const r = http.request({ port, method, path: urlPath, headers }, (res) => {
+      let d = ''; res.on('data', c => d += c);
+      res.on('end', () => resolve({ status: res.statusCode, body: d }));
+    });
+    if (buf) r.write(buf);
+    r.end();
+  });
 }
 
 function req(server, method, path, body) {
@@ -223,5 +260,78 @@ test('a malformed request path does not crash the server', async () => {
   // server still serves normal requests afterward
   const ok = await req(server, 'GET', '/healthz');
   assert.strictEqual(ok.status, 200);
+  close();
+});
+
+test('GET /api/media lists files', async () => {
+  const { server, close, mediaLibrary } = boot();
+  mediaLibrary.save('clip.mp3', Buffer.from('FAKE'));
+  await new Promise(r => server.listen(0, r));
+  const res = await req(server, 'GET', '/api/media');
+  const body = JSON.parse(res.body);
+  assert.strictEqual(res.status, 200);
+  assert.ok(Array.isArray(body.files));
+  assert.strictEqual(body.files.length, 1);
+  assert.strictEqual(body.files[0].path, 'clip.mp3');
+  close();
+});
+
+test('POST /api/media/upload with a valid mp3 multipart body saves it and returns 200', async () => {
+  const { server, close, mediaLibrary } = boot();
+  await new Promise(r => server.listen(0, r));
+  const boundary = 'X-UPLOAD-BOUNDARY';
+  const buf = buildMultipart(boundary, [
+    { name: 'file', filename: 'clip.mp3', contentType: 'audio/mpeg', content: 'FAKE-MP3-BYTES' },
+  ]);
+  const res = await reqRaw(server, 'POST', '/api/media/upload', buf, {
+    'Content-Type': `multipart/form-data; boundary=${boundary}`,
+    'Content-Length': buf.length,
+  });
+  assert.strictEqual(res.status, 200);
+  const body = JSON.parse(res.body);
+  assert.strictEqual(body.path, 'clip.mp3');
+  assert.ok(mediaLibrary.list().some(f => f.path === 'clip.mp3'));
+  close();
+});
+
+test('POST /api/media/upload with a disallowed extension returns 400', async () => {
+  const { server, close } = boot();
+  await new Promise(r => server.listen(0, r));
+  const boundary = 'X-UPLOAD-BOUNDARY-2';
+  const buf = buildMultipart(boundary, [
+    { name: 'file', filename: 'virus.exe', contentType: 'application/octet-stream', content: 'BAD' },
+  ]);
+  const res = await reqRaw(server, 'POST', '/api/media/upload', buf, {
+    'Content-Type': `multipart/form-data; boundary=${boundary}`,
+    'Content-Length': buf.length,
+  });
+  assert.strictEqual(res.status, 400);
+  const body = JSON.parse(res.body);
+  assert.ok(body.error);
+  close();
+});
+
+test('DELETE /api/media?path=… on a referenced file returns 409 with inUse', async () => {
+  const steps = [{ id: 'step1', hints: [{ type: 'audio', mediaRef: 'clip.mp3' }] }];
+  const { server, close, mediaLibrary } = boot({ steps: () => steps });
+  mediaLibrary.save('clip.mp3', Buffer.from('FAKE'));
+  await new Promise(r => server.listen(0, r));
+  const res = await req(server, 'DELETE', '/api/media?path=clip.mp3');
+  assert.strictEqual(res.status, 409);
+  const body = JSON.parse(res.body);
+  assert.deepStrictEqual(body.inUse, ['step1']);
+  close();
+});
+
+test('GET /api/media/usage returns bytes/count/freeBytes', async () => {
+  const { server, close, mediaLibrary } = boot();
+  mediaLibrary.save('clip.mp3', Buffer.from('FAKE-BYTES'));
+  await new Promise(r => server.listen(0, r));
+  const res = await req(server, 'GET', '/api/media/usage');
+  assert.strictEqual(res.status, 200);
+  const body = JSON.parse(res.body);
+  assert.strictEqual(typeof body.bytes, 'number');
+  assert.strictEqual(body.count, 1);
+  assert.ok('freeBytes' in body);
   close();
 });
