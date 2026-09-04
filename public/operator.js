@@ -87,6 +87,11 @@ if (typeof module !== 'undefined' && module.exports) {
     window.open('/config.html', 'config', 'width=960,height=900,resizable=yes');
   });
 
+  const mediaBtn = document.getElementById('btn-media');
+  if (mediaBtn) mediaBtn.addEventListener('click', () => {
+    window.open('/media.html', 'media', 'width=960,height=900,resizable=yes');
+  });
+
   // ── Single-screen Pi: just (re)open the game screen ───────────────────────
   const reopenBtn = document.getElementById('btn-reopen-game');
   if (reopenBtn) reopenBtn.addEventListener('click', () => {

@@ -177,12 +177,21 @@
     }
     .hotkey-table td.k.none { color: #556; }
     .hotkey-empty { color: #556; font-size: 12px; padding: 10px; }
+
+    .back-link {
+      position: fixed; top: 14px; left: 18px;
+      color: #445; font-size: 12px; text-decoration: none;
+      letter-spacing: 1px;
+    }
+    .back-link:hover { color: #7fb8ff; }
   </style>
 </head>
 <body>
 
+<a class="back-link" href="/">← Home</a>
+
 <h1>HTM Game Clock</h1>
-<p class="subtitle">Configuration — save to apply changes</p>
+<p class="subtitle">Configuration — save to apply changes &nbsp;·&nbsp; <a href="/media.html" style="color:#a0c4ff;">🎵 Media Library</a></p>
 
 <div class="tabs" id="config-tabs">
   <button class="tab-btn active" data-tab="general">General</button>

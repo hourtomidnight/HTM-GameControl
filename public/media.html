@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>HTM Game Clock — Media Library</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #1a1a2e;
+      color: #e0e0e0;
+      font-family: Arial, sans-serif;
+      font-size: 14px;
+      padding: 24px 28px 40px;
+      min-height: 100vh;
+    }
+
+    h1 { font-size: 24px; color: #fff; margin-bottom: 4px; }
+    .subtitle { color: #666; font-size: 12px; margin-bottom: 24px; }
+
+    .back-link {
+      position: fixed; top: 14px; left: 18px;
+      color: #445; font-size: 12px; text-decoration: none;
+      letter-spacing: 1px;
+    }
+    .back-link:hover { color: #7fb8ff; }
+
+    .card {
+      background: #16213e;
+      border-radius: 10px;
+      padding: 18px 22px;
+      margin-bottom: 18px;
+    }
+    .card h2 {
+      font-size: 12px; color: #a0c4ff; text-transform: uppercase;
+      letter-spacing: 2px; margin-bottom: 14px;
+      border-bottom: 1px solid #0f3460; padding-bottom: 7px;
+    }
+
+    .field-row {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
+    }
+    .field-row label { width: 100px; color: #aaa; flex-shrink: 0; }
+
+    input[type="text"], input[type="file"] {
+      background: #0f3460; border: 1px solid #1a4a80;
+      color: #fff; border-radius: 6px; padding: 5px 9px; font-size: 14px;
+    }
+    input[type="text"] { flex: 1; }
+
+    button {
+      border: none; border-radius: 7px; cursor: pointer; font-weight: bold;
+      font-size: 12px; transition: filter 0.15s, transform 0.1s;
+      user-select: none; white-space: nowrap;
+    }
+    button:hover  { filter: brightness(1.2); }
+    button:active { transform: scale(0.96); }
+
+    .btn-upload { background: #2e7d32; color: #fff; padding: 8px 18px; font-size: 13px; }
+    .btn-del-media { background: #3a1515; color: #ff7777; padding: 5px 10px; }
+
+    #upload-status { color: #7fb8ff; font-size: 12px; margin-left: 8px; }
+
+    .usage-bar { color: #a0c4ff; font-size: 13px; margin-bottom: 4px; }
+
+    table.media-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    table.media-table th {
+      text-align: left; color: #667; font-size: 10px; text-transform: uppercase;
+      letter-spacing: 1px; padding: 6px 10px; border-bottom: 1px solid #1e3a6e;
+    }
+    table.media-table td { padding: 6px 10px; border-bottom: 1px solid #0f3460; color: #cdd6e8; vertical-align: middle; }
+    tr.media-row.missing { background: rgba(255, 119, 119, 0.08); }
+    .badge.missing { background: #3a1515; color: #ff7777; border-radius: 6px; padding: 2px 8px; font-size: 11px; }
+    .editable-title, .editable-tags { cursor: text; min-width: 80px; }
+    .editable-title:focus, .editable-tags:focus { outline: 1px solid #4a8aff; background: #0f1a35; }
+    audio { height: 28px; max-width: 200px; }
+    .path-cell { font-family: monospace; font-size: 12px; color: #7fb8ff; }
+  </style>
+</head>
+<body>
+
+<a class="back-link" href="/">← Home</a>
+
+<h1>HTM Game Clock</h1>
+<p class="subtitle">Media Library — audio &amp; video files used by hints</p>
+
+<div class="card">
+  <h2>Upload</h2>
+  <form id="upload-form">
+    <div class="field-row">
+      <label>File</label>
+      <input type="file" id="upload-file" name="file" required />
+    </div>
+    <div class="field-row">
+      <label>Folder</label>
+      <input type="text" id="upload-folder" name="folder" placeholder="e.g. nibiru — optional subfolder" />
+    </div>
+    <div class="field-row">
+      <button type="submit" class="btn-upload">Upload</button>
+      <span id="upload-status"></span>
+    </div>
+  </form>
+</div>
+
+<div class="card">
+  <h2>Storage</h2>
+  <div id="usage-bar" class="usage-bar">Loading…</div>
+</div>
+
+<div class="card">
+  <h2>Files</h2>
+  <div style="overflow-x:auto;">
+    <table class="media-table">
+      <thead>
+        <tr>
+          <th>Preview</th><th>Path</th><th>Title</th><th>Tags</th><th>Size</th><th>Usage</th><th></th><th></th>
+        </tr>
+      </thead>
+      <tbody id="media-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<script src="media.js"></script>
+</body>
+</html>
