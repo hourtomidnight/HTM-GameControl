@@ -57,6 +57,7 @@
       font-size: 12px; font-family: monospace; text-align: center;
       cursor: pointer; user-select: none; transition: border-color 0.15s;
     }
+    span.key-capture { display: inline-block; }
     .key-capture:focus { outline: none; border-color: #4a8aff; background: #0d2540; }
     .key-capture.capturing { border-color: #ffd700; color: #ffd700; background: #1a1500; }
     .key-capture.has-key  { border-color: #2a6a4a; color: #7fff7f; background: #0a1a0f; }
@@ -540,13 +541,16 @@ function formatKey(e) {
   return mods.join('+');
 }
 
-// ── Key-capture widget (still used by the Start/Stop key; formatKey also used by it) ──
-function makeKeyCapture(initialKey) {
-  const el = document.createElement('div');
-  el.className = 'key-capture' + (initialKey ? ' has-key' : '');
-  el.tabIndex = 0;
-  el.textContent = initialKey || 'click to assign';
-  el.dataset.key = initialKey || '';
+// ── Key-capture widget ──────────────────────────────────────────────────────
+// attachKeyCapture wires the click / contextmenu / keydown / blur behaviour onto
+// an existing `.key-capture` element (its `dataset.key` is the source of truth).
+// Used by the Board editor's per-hint `key` spans (rendered by config-board.js's
+// renderHintRow) via enhanceKeyCaptures(); the Start/Stop key on the Hotkeys tab
+// has its own inline copy of the same handlers.
+function attachKeyCapture(el) {
+  if (el._kcBound) return;
+  el._kcBound = true;
+  if (el.tabIndex < 0) el.tabIndex = 0;
 
   el.addEventListener('click', () => {
     el.classList.add('capturing');
@@ -567,7 +571,6 @@ function makeKeyCapture(initialKey) {
     if (!el.classList.contains('capturing')) return;
     e.preventDefault();
     e.stopPropagation();
-    // Ignore bare modifier keys
     if (['Control','Alt','Shift','Meta'].includes(e.key)) return;
     const keyStr = formatKey(e);
     el.dataset.key = keyStr;
@@ -582,8 +585,12 @@ function makeKeyCapture(initialKey) {
       if (el.dataset.key) el.classList.add('has-key');
     }
   });
+}
 
-  return el;
+// Upgrade every rendered `.key-capture[data-field="key"]` in a board re-render
+// into an interactive capture widget.
+function enhanceKeyCaptures(root) {
+  (root || document).querySelectorAll('.key-capture[data-field="key"]').forEach(attachKeyCapture);
 }
 
 // ── Board editor (config-board.js) — in-memory working state ──────────────────
@@ -600,12 +607,20 @@ function renderBoard() {
     steps: boardState.steps,
     progress: { flags: boardState.flags },
   });
+  enhanceKeyCaptures(boardContainer);
 }
 function renderAudio() {
   audioContainer.innerHTML = ConfigBoard.renderAudioEventsCard({ audio: { events: audioState.events } });
 }
 
 // Walk the rendered editor DOM back into a plain boardState object.
+// The `key` field is a `.key-capture` span (dataset.key = truth); tolerate an
+// <input> shape too in case the render ever changes back.
+function keyFieldValue(el) {
+  if (!el) return '';
+  if (el.dataset && el.dataset.key != null) return el.dataset.key;
+  return el.value || '';
+}
 function readStepEl(stepEl) {
   const sel = stepEl.querySelector(':scope > select[data-field="sectionId"]');
   const hints = [];
@@ -618,7 +633,7 @@ function readStepEl(stepEl) {
       label: h.querySelector('input[data-field="label"]').value,
       color: h.querySelector('input[data-field="color"]').value,
       icon: h.querySelector('input[data-field="icon"]').value,
-      key: h.querySelector('input[data-field="key"]').value,
+      key: keyFieldValue(h.querySelector('[data-field="key"]')),
       countsAsClue: h.querySelector('input[data-field="countsAsClue"]').checked,
     });
   });

@@ -157,6 +157,29 @@ test('renderBoardEditor: names, hint text, audio picker + mediaRef, flags, data 
   assert.match(html, /data-id="sec_desk"/);
   assert.match(html, /data-role="hint"/);
   assert.match(html, /data-action="import-checklist" disabled/);
+  // hint hotkey field is a capture-friendly .key-capture span, not a free-text input
+  assert.match(html, /<span class="key-capture has-key" data-field="key" data-key="F1" tabindex="0">F1<\/span>/);
+  assert.doesNotMatch(html, /<input[^>]*data-field="key"/);
+});
+
+test('renderBoardEditor: hint key field is a .key-capture span carrying data-field/data-key', () => {
+  const withKey = renderBoardEditor({
+    sections: [], progress: { flags: [] },
+    steps: [{ id: 'step_1', name: 'S', hints: [
+      { id: 'step_1_h1', type: 'text', text: 'x', key: 'Ctrl+Shift+K' },
+    ] }],
+  });
+  assert.match(withKey, /class="key-capture has-key"/);
+  assert.match(withKey, /data-field="key"/);
+  assert.match(withKey, /data-key="Ctrl\+Shift\+K"/);
+  assert.match(withKey, />Ctrl\+Shift\+K<\/span>/);
+
+  // no key -> no has-key class, placeholder text, empty data-key
+  const noKey = renderBoardEditor({
+    sections: [], progress: { flags: [] },
+    steps: [{ id: 'step_2', name: 'S2', hints: [{ id: 'step_2_h1', type: 'text', text: 'y' }] }],
+  });
+  assert.match(noKey, /<span class="key-capture" data-field="key" data-key="" tabindex="0">click to assign<\/span>/);
 });
 
 test('renderBoardEditor({}) renders add buttons + empty state, no crash', () => {

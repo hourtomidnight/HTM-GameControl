@@ -214,7 +214,8 @@ function renderHintRow(hint) {
     '<input type="text" data-field="label" placeholder="label" value="' + esc(hint.label || '') + '"/>' +
     '<input type="text" data-field="color" placeholder="color" value="' + esc(hint.color || '') + '"/>' +
     '<input type="text" data-field="icon" placeholder="icon" value="' + esc(hint.icon || '') + '"/>' +
-    '<input type="text" data-field="key" placeholder="key" value="' + esc(hint.key || '') + '"/>' +
+    '<span class="key-capture' + (hint.key ? ' has-key' : '') + '" data-field="key" data-key="' +
+      esc(hint.key || '') + '" tabindex="0">' + esc(hint.key || 'click to assign') + '</span>' +
     '<label><input type="checkbox" data-field="countsAsClue"' + counts + '/> counts as clue</label>' +
     '<button type="button" data-action="hint-up">▲</button>' +
     '<button type="button" data-action="hint-down">▼</button>' +
