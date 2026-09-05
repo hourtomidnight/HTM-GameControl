@@ -103,3 +103,43 @@ test('commandForBoardAction maps play-hint and stop-audio', () => {
 test('commandForBoardAction returns null for an unrecognized action', () => {
   assert.equal(commandForBoardAction('bogus', {}), null);
 });
+
+test('an explicit step-level force-open bubbles up over an explicit section-level force-closed', () => {
+  const html = renderBoard(
+    cfg(),
+    { steps: {}, flags: {} },
+    { collapsedSections: { sec_desk: true }, collapsedSteps: { step_1: false } }
+  );
+  // Even though the operator explicitly collapsed the whole section, the
+  // explicitly-force-opened step's content must still be visible.
+  assert.match(html, /Look under the desk/);
+});
+
+test('section header data-on reflects the actual rendered body state when bubble-up forces it open', () => {
+  const html = renderBoard(
+    cfg(),
+    { steps: {}, flags: {} },
+    { collapsedSections: { sec_desk: true }, collapsedSteps: { step_1: false } }
+  );
+  const hdrMatch = html.match(/data-action="toggle-section" data-section-id="sec_desk" data-on="([^"]+)"/);
+  assert.ok(hdrMatch, 'expected to find the section header element');
+  // Body is actually shown (bubble-up), so the next click should collapse it:
+  // data-on (the "next state if clicked" flag) must be "false", not "true".
+  assert.equal(hdrMatch[1], 'false');
+  // The section wrapper must not carry the "collapsed" class either, since
+  // its body is genuinely rendered.
+  assert.doesNotMatch(html, /<div class="board-section collapsed">/);
+});
+
+test('renderBoard renders sections in `order` regardless of their position in the config array', () => {
+  const config = {
+    sections: [
+      { id: 'sec_b', name: 'SectionB', order: 2, note: '' },
+      { id: 'sec_a', name: 'SectionA', order: 1, note: '' },
+    ],
+    steps: [],
+    progress: { flags: [] },
+  };
+  const html = renderBoard(config, { steps: {}, flags: {} });
+  assert.ok(html.indexOf('SectionA') < html.indexOf('SectionB'), 'SectionA (order 1) should render before SectionB (order 2)');
+});

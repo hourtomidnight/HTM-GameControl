@@ -63,18 +63,26 @@ function renderSection(section, sectionSteps, stateSteps, uiState) {
     ? collapsedSections[section.id]
     : null;
   const collapsed = explicit != null ? explicit : complete;
-  // An explicit per-step override to "expanded" always wins, even when the
-  // section itself is auto-collapsed (e.g. because the section is complete):
-  // the operator asked to see that one step, so the section must still render
-  // its body for that step to be visible.
+  // Precedence rule: an explicit per-step force-open (uiState.collapsedSteps[id]
+  // === false) always bubbles up and forces the section body open, even over an
+  // EXPLICIT section-level force-closed (uiState.collapsedSections[id] === true),
+  // not just the auto-computed default. Rationale: the step-level override is the
+  // more specific, more recent user action in the UI's mental model (the operator
+  // clicked to reveal this one step), and UI conventions elsewhere (e.g.
+  // search-expands-collapsed-parents) favor "make the thing I asked for visible"
+  // over honoring a broader, older "keep this whole section closed" instruction.
   const hasForcedOpenStep = sectionSteps.some(
     (s) => Object.prototype.hasOwnProperty.call(collapsedSteps, s.id) && collapsedSteps[s.id] === false
   );
-  const renderBody = !collapsed || hasForcedOpenStep;
-  const body = renderBody ? sectionSteps.map((s) => renderStep(s, stateSteps, uiState)).join('') : '';
-  return `<div class="board-section${collapsed ? ' collapsed' : ''}">
-    <div class="board-section-hdr" data-action="toggle-section" data-section-id="${esc(section.id)}" data-on="${!collapsed}">
-      <span>${collapsed ? '▸' : '▾'} ${esc(section.name)}</span><span>${solvedCount}/${sectionSteps.length}</span>
+  // `bodyShown` is the single source of truth for "is the body actually
+  // rendered" — the header's arrow/.collapsed class/data-on MUST be derived
+  // from this same value (not from `collapsed` alone), so the header never
+  // desyncs from what's actually visible when bubble-up fires.
+  const bodyShown = !collapsed || hasForcedOpenStep;
+  const body = bodyShown ? sectionSteps.map((s) => renderStep(s, stateSteps, uiState)).join('') : '';
+  return `<div class="board-section${bodyShown ? '' : ' collapsed'}">
+    <div class="board-section-hdr" data-action="toggle-section" data-section-id="${esc(section.id)}" data-on="${!bodyShown}">
+      <span>${bodyShown ? '▾' : '▸'} ${esc(section.name)}</span><span>${solvedCount}/${sectionSteps.length}</span>
     </div>
     <div class="board-section-body">${body}</div>
   </div>`;
@@ -111,6 +119,8 @@ function renderFlags(config, state) {
 function renderBoard(config, state, uiState = {}) {
   config = config || {};
   state = state || {};
+  // Sorted by `order` per the config schema's ordering field; covered by the
+  // "renders sections in order regardless of config array order" test below.
   const sections = (config.sections || []).slice().sort((a, b) => (a.order || 0) - (b.order || 0));
   const steps = config.steps || [];
   const stateSteps = state.steps || {};
