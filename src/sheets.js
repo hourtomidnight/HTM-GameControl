@@ -47,6 +47,7 @@ function buildHintRow(hintRecord, session) {
 }
 
 // Rows for the "Hotkeys" reference tab: A=Group, B=Hint, C=Hotkey (one row per hint).
+// Kept for one-release hintGroups fallback; buildHotkeysRowsFromSteps() is now preferred.
 function buildHotkeysRows(hintGroups) {
   const rows = [];
   (hintGroups || []).forEach(g => {
@@ -221,7 +222,7 @@ function createSheets({ credentialsPath, config, eventStore, gameStore, googleFa
     const c = cfg();
     if (!c.hintsSpreadsheetId) return;
     const tab = c.hotkeysTabName || 'Hotkeys';
-    const rows = buildHotkeysRows(config.current().hintGroups);
+    const rows = buildHotkeysRowsFromSteps(config.current().steps);
     await ensureTab(c.hintsSpreadsheetId, tab);
     await withRetry(() => api.spreadsheets.values.clear({
       spreadsheetId: c.hintsSpreadsheetId, range: `${tab}!A:C`,
