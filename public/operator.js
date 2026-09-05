@@ -259,6 +259,7 @@ if (typeof module !== 'undefined' && module.exports) {
 
     const c = commandForBoardAction(action, el.dataset);
     if (!c) return;
+    if ((action === 'show-hint' || action === 'play-hint') && (e.ctrlKey || e.metaKey)) c.noCount = true;
     cmd(c.type, c);
   });
 

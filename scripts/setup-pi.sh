@@ -65,12 +65,9 @@ echo "  mpg123   $(mpg123 --version 2>&1 | head -1 || echo 'not found')"
 
 # ── Assets reminder ────────────────────────────────────────────────────────
 echo ""
-echo "  Audio assets needed in: $INSTALL_DIR/public/assets/"
-echo "    TimerMusic.mp3   FinaleMusic.mp3   ClueSound.mp3"
-echo "  (App runs without them — audio commands are silent)"
-echo ""
-echo "  Server-side audio assets go in: $INSTALL_DIR/media/"
-echo "  (uploaded via the Media Library page once the server is running)"
+echo "  Game & hint audio is server-side now: upload files via the Media Library"
+echo "  page, then assign them in Config → Audio Events (start / loop / win /"
+echo "  lose / chime). Files live in: $INSTALL_DIR/media/"
 
 # ── Google Sheets credentials reminder ─────────────────────────────────────
 echo ""

@@ -46,16 +46,8 @@ if (typeof module !== 'undefined' && module.exports) {
   const volumeBarEl  = document.getElementById('volume-bar');
   const statusEl     = document.getElementById('status');
 
-  // Audio (play/stop only — driven by prev-vs-current snapshot)
-  function makeAudio(file) { const a = new Audio('assets/' + file); a.preload = 'auto'; return a; }
-  const timerMusic  = makeAudio('TimerMusic.mp3');
-  const finaleMusic = makeAudio('FinaleMusic.mp3');
-  const clueSound   = makeAudio('ClueSound.mp3');
-  timerMusic.loop = true;
-
   function applyVolume(v) {
     const vol = Math.max(0, Math.min(1, v == null ? 0.4 : v));
-    timerMusic.volume = finaleMusic.volume = clueSound.volume = vol;
     if (volumeBarEl) volumeBarEl.textContent = 'Vol: ' + Math.round(vol * 100) + '%';
   }
 
@@ -100,22 +92,6 @@ if (typeof module !== 'undefined' && module.exports) {
     restartHintCycle();
   }
 
-  // ── Audio transitions ────────────────────────────────────────────────────
-  function handleAudio(before, after) {
-    const running = after.phase === 'running' && after.timerRunning && !after.onSplash;
-    if (running) { timerMusic.play().catch(() => {}); }
-    else { timerMusic.pause(); }
-
-    if (after.phase === 'escaped' && (!before || before.phase !== 'escaped')) {
-      finaleMusic.currentTime = 0; finaleMusic.play().catch(() => {});
-    }
-    if (after.phase !== 'escaped') { finaleMusic.pause(); finaleMusic.currentTime = 0; }
-
-    const had = before && before.activeHints ? before.activeHints.length : 0;
-    const now = after.activeHints ? after.activeHints.length : 0;
-    if (now > had) { clueSound.currentTime = 0; clueSound.play().catch(() => {}); }
-  }
-
   // ── Paint ────────────────────────────────────────────────────────────────
   function paint(s) {
     const m = renderModel(s);
@@ -146,7 +122,6 @@ if (typeof module !== 'undefined' && module.exports) {
     }
 
     syncHints(s.activeHints || []);
-    handleAudio(prev, s);
     prev = s;
   }
 
