@@ -3,16 +3,18 @@ const assert = require('node:assert');
 const { createEventStore } = require('../src/event-store');
 const { createGameStore } = require('../src/game-store');
 const { createGameEngine } = require('../src/game-engine');
+const { createProgress } = require('../src/progress');
 
-function mk() {
+function mk(opts = {}) {
   const es = createEventStore({ path: ':memory:' });
   const gs = createGameStore(es.db);
   let t = 10000;
+  const progress = opts.withProgress ? createProgress({ eventStore: es, now: () => t }) : null;
   const engine = createGameEngine({
-    eventStore: es, gameStore: gs,
+    eventStore: es, gameStore: gs, progress,
     now: () => t, setInterval: () => 0, clearInterval: () => {},
   });
-  return { es, gs, engine, advance: (ms) => { t += ms; } };
+  return { es, gs, engine, progress, advance: (ms) => { t += ms; } };
 }
 
 test('start from waiting creates a game row and goes running', () => {
@@ -197,4 +199,77 @@ test('game state is mirrored onto the internal signal bus when provided', () => 
   assert.strictEqual(bus.get('timer_running').value, true);
   engine.command({ type: 'escaped' });
   assert.strictEqual(bus.get('game_locked').value, true);
+});
+
+test('getState omits steps/flags when no progress module is wired', () => {
+  const { engine } = mk(); // no progress
+  const s = engine.getState();
+  assert.equal('steps' in s, false);
+  assert.equal('flags' in s, false);
+});
+
+test('starting a game calls progress.startGame with the gameId and start time', () => {
+  const { engine } = mk({ withProgress: true });
+  engine.command({ type: 'start' });
+  const s = engine.getState();
+  assert.ok(s.steps);
+  assert.deepEqual(s.steps, {});
+  assert.deepEqual(s.flags, {});
+});
+
+test('show-hint with a stepId marks progress given, in addition to existing text-hint behavior', () => {
+  const { engine } = mk({ withProgress: true });
+  engine.command({ type: 'start' });
+  engine.command({ type: 'show-hint', text: 'Look under the desk', stepId: 'step_1' });
+  const s = engine.getState();
+  assert.ok(s.activeHints.includes('Look under the desk')); // existing behavior unchanged
+  assert.ok(s.steps.step_1.clueGivenAt); // new: progress tracked it
+});
+
+test('show-hint without a stepId does not touch progress (backward compatible)', () => {
+  const { engine } = mk({ withProgress: true });
+  engine.command({ type: 'start' });
+  engine.command({ type: 'show-hint', text: 'Old-style hint' });
+  const s = engine.getState();
+  assert.deepEqual(s.steps, {}); // untouched
+});
+
+test('solve-step toggles a step and is reflected in getState().steps', () => {
+  const { engine } = mk({ withProgress: true });
+  engine.command({ type: 'start' });
+  engine.command({ type: 'solve-step', stepId: 'step_1', on: true });
+  assert.ok(engine.getState().steps.step_1.solvedAt);
+  engine.command({ type: 'solve-step', stepId: 'step_1', on: false });
+  assert.equal(engine.getState().steps.step_1.solvedAt, null);
+});
+
+test('solve-step is a no-op when no game is running', () => {
+  const { es, engine } = mk({ withProgress: true });
+  engine.command({ type: 'solve-step', stepId: 'step_1', on: true }); // no start
+  assert.deepEqual(engine.getState().steps, {});
+  assert.strictEqual(es.query({ type: 'solve-step' }).length, 0);
+});
+
+test('set-flag toggles a game-level flag reflected in getState().flags', () => {
+  const { engine } = mk({ withProgress: true });
+  engine.command({ type: 'start' });
+  engine.command({ type: 'set-flag', name: 'Translation given', on: true });
+  assert.ok(engine.getState().flags['Translation given']);
+  engine.command({ type: 'set-flag', name: 'Translation given', on: false });
+  assert.equal(engine.getState().flags['Translation given'], null);
+});
+
+test('reset blanks progress state immediately', () => {
+  const { engine } = mk({ withProgress: true });
+  engine.command({ type: 'start' });
+  engine.command({ type: 'solve-step', stepId: 'step_1', on: true });
+  engine.command({ type: 'reset' });
+  assert.deepEqual(engine.getState().steps, {});
+});
+
+test('a missing progress module never crashes solve-step/set-flag commands', () => {
+  const { engine } = mk(); // no progress
+  engine.command({ type: 'start' });
+  assert.doesNotThrow(() => engine.command({ type: 'solve-step', stepId: 'step_1', on: true }));
+  assert.doesNotThrow(() => engine.command({ type: 'set-flag', name: 'f', on: true }));
 });

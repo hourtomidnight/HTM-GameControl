@@ -9,6 +9,7 @@ const { createGameEngine } = require('./src/game-engine');
 const { createSheets } = require('./src/sheets');
 const { createMediaLibrary } = require('./src/media-library');
 const { createAudioPlayer } = require('./src/audio-player');
+const { createProgress } = require('./src/progress');
 const { createWebServer } = require('./src/web');
 
 const PORT = 4000;
@@ -61,8 +62,9 @@ const mediaLibrary = createMediaLibrary({ db: eventStore.db, root: MEDIA_ROOT, s
 const audioPlayer = createAudioPlayer({ mediaRoot: MEDIA_ROOT, eventStore });
 
 const sheets = createSheets({ credentialsPath: CREDS_PATH, config, eventStore, gameStore });
+const progress = createProgress({ eventStore });
 
-const engine = createGameEngine({ eventStore, gameStore, sheets, signalBus, roomName: cfg.roomName || '' });
+const engine = createGameEngine({ eventStore, gameStore, sheets, signalBus, progress, roomName: cfg.roomName || '' });
 engine.setStartMinutes((cfg.game && cfg.game.timerMinutes) || 60);
 
 const { server } = createWebServer({

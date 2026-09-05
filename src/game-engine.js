@@ -8,7 +8,7 @@ function createGameEngine(deps) {
     eventStore, gameStore,
     now = () => Date.now(),
     setInterval: setIv = setInterval, clearInterval: clearIv = clearInterval,
-    sheets = null, signalBus = null,
+    sheets = null, signalBus = null, progress = null,
     roomName = '',
   } = deps;
 
@@ -35,7 +35,15 @@ function createGameEngine(deps) {
     if (signalBus) mirrorSignals();
   }
 
-  function getState() { return { ...s, activeHints: s.activeHints.slice() }; }
+  function getState() {
+    const base = { ...s, activeHints: s.activeHints.slice() };
+    if (progress) {
+      const snap = progress.snapshot();
+      base.steps = snap.steps;
+      base.flags = snap.flags;
+    }
+    return base;
+  }
 
   function onState(fn) {
     listeners.push(fn);
@@ -133,6 +141,7 @@ function createGameEngine(deps) {
       s.phase = 'running'; s.timerRunning = true; s.onSplash = false;
       s.currentMin = startMinutes; s.currentSec = 0; s.clockForward = false;
       startTimer();
+      if (progress) { try { progress.startGame(gameId, startTime); } catch {} }
       record(type, { _source: msg._source });
       if (sheets) safeSheets(() => sheets.onGameStart(gameId, session));
       emit();
@@ -167,6 +176,7 @@ function createGameEngine(deps) {
       if (!s.activeHints.includes(rec.text)) s.activeHints.push(rec.text);
       s.clueCount++;
       syncGameRow({ hint_count: session.hints.length });
+      if (progress && msg.stepId) { try { progress.markGiven(msg.stepId); } catch {} }
       record(type, { subject: 'hint', value: rec.text, _source: msg._source });
       if (sheets && gameId != null) safeSheets(() => sheets.onHint(gameId, session, rec));
       emit();
@@ -178,6 +188,21 @@ function createGameEngine(deps) {
     }
     if (type === 'hide-clue') {
       s.activeHints = []; record(type, { _source: msg._source }); emit(); return;
+    }
+
+    if (type === 'solve-step') {
+      if (!progress || s.phase !== 'running' || s.gameLocked) return;
+      progress.solveStep(msg.stepId, !!msg.on);
+      record(type, { subject: msg.stepId, value: !!msg.on, _source: msg._source });
+      emit();
+      return;
+    }
+    if (type === 'set-flag') {
+      if (!progress || s.phase !== 'running' || s.gameLocked) return;
+      progress.setFlag(msg.name, !!msg.on);
+      record(type, { subject: msg.name, value: !!msg.on, _source: msg._source });
+      emit();
+      return;
     }
 
     if (type === 'escaped') {
@@ -203,6 +228,7 @@ function createGameEngine(deps) {
       stopTimer();
       session = null; gameId = null; pendingFields = {};
       s = blankState();
+      if (progress) { try { progress.startGame(null, now()); } catch {} }
       record(type, { _source: msg._source });
       emit();
       return;
