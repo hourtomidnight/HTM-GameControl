@@ -81,3 +81,8 @@ const { server } = createWebServer({
 server.listen(PORT, '0.0.0.0', () => {
   console.log('htm-room-control on http://0.0.0.0:' + PORT + '/operator.html');
 });
+
+process.on('SIGTERM', () => {
+  try { audioPlayer.stopAll(); } catch {}
+  process.exit(0);
+});

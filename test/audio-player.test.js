@@ -111,6 +111,25 @@ test('setVolume clamps to 0..1 and returns the applied value', () => {
   assert.equal(player.now().volume, 0.7);
 });
 
+test('setVolume with a non-numeric argument leaves volume unchanged (no NaN)', () => {
+  const { player } = makePlayer();
+  player.setVolume(0.6);
+  assert.equal(player.now().volume, 0.6);
+
+  assert.equal(player.setVolume(undefined), 0.6);
+  assert.equal(player.now().volume, 0.6);
+
+  assert.equal(player.setVolume('not-a-number'), 0.6);
+  assert.equal(player.now().volume, 0.6);
+
+  assert.equal(player.setVolume(NaN), 0.6);
+  assert.equal(player.now().volume, 0.6);
+
+  // a subsequent valid call still works normally
+  assert.equal(player.setVolume(0.2), 0.2);
+  assert.equal(player.now().volume, 0.2);
+});
+
 test('setVolume degrades to audio-unavailable (no throw) when amixer is missing', () => {
   const { player, eventStore } = makePlayer({ exec: () => { throw new Error('amixer: not found'); } });
   assert.doesNotThrow(() => player.setVolume(0.5));

@@ -96,7 +96,8 @@ function createAudioPlayer({ mediaRoot, eventStore, spawn = realSpawn, exec = ex
   }
 
   function setVolume(v) {
-    const clamped = Math.max(0, Math.min(1, v));
+    const n = Number(v);
+    const clamped = Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : volume;
     volume = clamped;
     try { exec(`amixer set Master ${Math.round(clamped * 100)}%`, { stdio: 'ignore' }); }
     catch { record('audio-unavailable', null, { channel: 'volume' }); }
@@ -106,10 +107,6 @@ function createAudioPlayer({ mediaRoot, eventStore, spawn = realSpawn, exec = ex
   function now() {
     return { music: musicRef, effects: effectChildren.size, volume };
   }
-
-  try {
-    process.on('SIGTERM', () => { try { stopAll(); } catch {} });
-  } catch {}
 
   return { playEffect, playMusic, stopMusic, stopAll, setVolume, now };
 }
