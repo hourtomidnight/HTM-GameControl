@@ -57,11 +57,20 @@ echo "  Installing npm runtime dependencies (--omit=dev)..."
 cd "$INSTALL_DIR"
 npm install --omit=dev
 
+# ── Audio playback dependencies (server-side hint/game audio) ──────────────
+echo ""
+echo "  Installing audio playback dependencies (mpg123, alsa-utils)..."
+sudo apt-get install -y mpg123 alsa-utils
+echo "  mpg123   $(mpg123 --version 2>&1 | head -1 || echo 'not found')"
+
 # ── Assets reminder ────────────────────────────────────────────────────────
 echo ""
 echo "  Audio assets needed in: $INSTALL_DIR/public/assets/"
 echo "    TimerMusic.mp3   FinaleMusic.mp3   ClueSound.mp3"
 echo "  (App runs without them — audio commands are silent)"
+echo ""
+echo "  Server-side audio assets go in: $INSTALL_DIR/media/"
+echo "  (uploaded via the Media Library page once the server is running)"
 
 # ── Google Sheets credentials reminder ─────────────────────────────────────
 echo ""

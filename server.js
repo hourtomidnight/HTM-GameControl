@@ -8,6 +8,7 @@ const { createModbusDriver } = require('./src/drivers/modbus-tcp');
 const { createGameEngine } = require('./src/game-engine');
 const { createSheets } = require('./src/sheets');
 const { createMediaLibrary } = require('./src/media-library');
+const { createAudioPlayer } = require('./src/audio-player');
 const { createWebServer } = require('./src/web');
 
 const PORT = 4000;
@@ -57,6 +58,7 @@ signalBus.start();
 
 const MEDIA_ROOT = path.join(DIR, 'media');
 const mediaLibrary = createMediaLibrary({ db: eventStore.db, root: MEDIA_ROOT, steps: () => config.current().steps || [] });
+const audioPlayer = createAudioPlayer({ mediaRoot: MEDIA_ROOT, eventStore });
 
 const sheets = createSheets({ credentialsPath: CREDS_PATH, config, eventStore, gameStore });
 
