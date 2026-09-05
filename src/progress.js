@@ -6,7 +6,7 @@ function createProgress({ eventStore, now = () => Date.now() }) {
 
   function record(type, subject, extra = {}) {
     try {
-      eventStore.record({ source: 'progress', type, subject, game_id: gameId, ...extra });
+      eventStore.record({ source: 'progress', type, subject, game_id: gameId, ts: now(), ...extra });
     } catch {}
   }
 
@@ -35,7 +35,8 @@ function createProgress({ eventStore, now = () => Date.now() }) {
     if (on) {
       const solvedAt = now();
       step.solvedAt = solvedAt;
-      const detail = { elapsedMs: solvedAt - startedTs };
+      const detail = {};
+      if (startedTs != null) detail.elapsedMs = solvedAt - startedTs;
       if (step.clueGivenAt != null) detail.clueToSolveMs = solvedAt - step.clueGivenAt;
       record('step-solved', stepId, { detail });
     } else {

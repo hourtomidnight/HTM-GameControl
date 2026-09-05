@@ -116,3 +116,27 @@ test('all recorded events carry the current game_id', () => {
   assert.ok(all.length >= 4); // progress-reset + hint-given + step-solved + flag-set
   assert.ok(all.every(e => e.game_id === 7));
 });
+
+test('recorded events use injected now(), not wall-clock time', () => {
+  const es = createEventStore({ path: ':memory:' });
+  let t = 999000; // a value far from Date.now()
+  const progress = createProgress({ eventStore: es, now: () => t });
+  progress.startGame(1, 999000);
+  progress.markGiven('step_1');
+
+  const hintEvent = es.query({ type: 'hint-given' })[0];
+  assert.equal(hintEvent.ts, 999000, 'hint-given event ts should match injected now(), not Date.now()');
+});
+
+test('solveStep without prior startGame omits elapsedMs (startedTs is null)', () => {
+  const es = createEventStore({ path: ':memory:' });
+  let t = 100000;
+  const progress = createProgress({ eventStore: es, now: () => t });
+  // Deliberately skip startGame — startedTs remains null
+  progress.solveStep('step_1', true);
+
+  const solveEvent = es.query({ type: 'step-solved' })[0];
+  const detail = solveEvent.detail;
+  assert.equal('elapsedMs' in detail, false, 'elapsedMs should be omitted when startedTs is null');
+  assert.equal(typeof detail.elapsedMs, 'undefined', 'elapsedMs value should be undefined, not NaN or null');
+});
