@@ -212,19 +212,30 @@ if (typeof module !== 'undefined' && module.exports) {
     const action = el.dataset.action;
 
     if (action === 'toggle-section') {
-      // board.js renders the section header's data-on as `!bodyShown` (i.e. the
-      // section's CURRENT collapsed-ness) — after a toggle, the new collapsed
-      // value equals the section's current shown-ness, i.e. `data-on !== 'true'`.
+      // board.js now renders BOTH step and section headers' data-on as "is this
+      // currently open" (true = open) — clicking flips it, so the new collapsed
+      // value is simply the current open-ness: `data-on === 'true'`.
+      const isOpen = el.dataset.on === 'true';
       uiState.collapsedSections = uiState.collapsedSections || {};
-      uiState.collapsedSections[el.dataset.sectionId] = el.dataset.on !== 'true';
+      uiState.collapsedSteps = uiState.collapsedSteps || {};
+      if (isOpen) {
+        // The section is only open here because a child step's explicit
+        // force-open bubbled it up (see board.js's `data-forcing-steps`) —
+        // otherwise a plain `collapsedSections[id] = true` would already have
+        // closed it. Clear those steps' overrides too, or the section would
+        // immediately bubble back open on the very next render.
+        const forcingIds = (el.dataset.forcingSteps || '').split(',').filter(Boolean);
+        forcingIds.forEach((stepId) => { delete uiState.collapsedSteps[stepId]; });
+      }
+      uiState.collapsedSections[el.dataset.sectionId] = isOpen;
       saveUiState();
       renderBoardNow();
       return;
     }
     if (action === 'toggle-step') {
-      // board.js renders the step header's data-on as `!collapsed` (i.e. whether
-      // the step is currently OPEN) — after a toggle, the new collapsed value
-      // equals that same current-open flag, i.e. `data-on === 'true'`.
+      // board.js renders the step header's data-on as "is this currently open"
+      // (true = open) — after a toggle, the new collapsed value is the same
+      // current-open flag: `data-on === 'true'`.
       uiState.collapsedSteps = uiState.collapsedSteps || {};
       uiState.collapsedSteps[el.dataset.stepId] = el.dataset.on === 'true';
       saveUiState();
@@ -236,6 +247,15 @@ if (typeof module !== 'undefined' && module.exports) {
     // the generic dispatch here would send a second, duplicate set-flag command
     // per toggle (double-writing the append-only event store / Sheets mirror).
     if (isGenericDispatchExcluded(action)) return;
+
+    // Flash the pad on click for visual click-confirmation (spec §7.2) — this
+    // matters most for play-hint, whose command is currently a silent no-op
+    // server-side (deferred to sub-milestone 6), so without this the operator
+    // has zero feedback a click registered at all.
+    if (action === 'show-hint' || action === 'play-hint') {
+      el.classList.add('flash');
+      setTimeout(() => el.classList.remove('flash'), 300);
+    }
 
     const c = commandForBoardAction(action, el.dataset);
     if (!c) return;
@@ -254,6 +274,14 @@ if (typeof module !== 'undefined' && module.exports) {
 
   const stopAudioBtn = document.getElementById('btn-stop-audio');
   if (stopAudioBtn) stopAudioBtn.addEventListener('click', () => cmd('stop-audio'));
+
+  // Re-render the board when config changes in another same-browser tab (e.g.
+  // the Config popup window saves) — spec §7.3 requires a re-render "on
+  // config-updated and on each state snapshot"; the state-snapshot half is
+  // handled in the channel 'message' listener above via renderBoardNow().
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'htm-config') renderBoardNow();
+  });
 
   // Initial load — fetch from server so all devices share the same config
   fetchAndCacheConfig().then(() => renderBoardNow());

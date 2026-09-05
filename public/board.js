@@ -71,21 +71,39 @@ function renderSection(section, sectionSteps, stateSteps, uiState) {
   // clicked to reveal this one step), and UI conventions elsewhere (e.g.
   // search-expands-collapsed-parents) favor "make the thing I asked for visible"
   // over honoring a broader, older "keep this whole section closed" instruction.
-  const hasForcedOpenStep = sectionSteps.some(
-    (s) => Object.prototype.hasOwnProperty.call(collapsedSteps, s.id) && collapsedSteps[s.id] === false
-  );
+  const forcingStepIds = stepsForcingSectionOpen(sectionSteps, collapsedSteps);
+  const hasForcedOpenStep = forcingStepIds.length > 0;
   // `bodyShown` is the single source of truth for "is the body actually
   // rendered" — the header's arrow/.collapsed class/data-on MUST be derived
   // from this same value (not from `collapsed` alone), so the header never
   // desyncs from what's actually visible when bubble-up fires.
   const bodyShown = !collapsed || hasForcedOpenStep;
   const body = bodyShown ? sectionSteps.map((s) => renderStep(s, stateSteps, uiState)).join('') : '';
+  // data-forcing-steps carries the ids of steps whose explicit force-open is
+  // the ONLY reason bodyShown is true while the section's own collapsed value
+  // is true (i.e. bubble-up in effect). operator.js's toggle-section handler
+  // uses this to know which collapsedSteps overrides to clear when the
+  // operator clicks a bubbled-up-open header, so "close this section" actually
+  // closes it instead of being a no-op. Empty when not applicable.
+  const forcingAttr = collapsed && hasForcedOpenStep ? ` data-forcing-steps="${esc(forcingStepIds.join(','))}"` : '';
   return `<div class="board-section${bodyShown ? '' : ' collapsed'}">
-    <div class="board-section-hdr" data-action="toggle-section" data-section-id="${esc(section.id)}" data-on="${!bodyShown}">
+    <div class="board-section-hdr" data-action="toggle-section" data-section-id="${esc(section.id)}" data-on="${bodyShown}"${forcingAttr}>
       <span>${bodyShown ? '▾' : '▸'} ${esc(section.name)}</span><span>${solvedCount}/${sectionSteps.length}</span>
     </div>
     <div class="board-section-body">${body}</div>
   </div>`;
+}
+
+// stepsForcingSectionOpen(sectionSteps, collapsedSteps) -> array of step ids
+// (in sectionSteps order) that carry an explicit force-open override
+// (collapsedSteps[id] === false). These are the steps "bubbling" a section's
+// body open per the precedence rule above. Pure + exported so operator.js can
+// compute the same set for its own logic if needed, and so it's unit-testable.
+function stepsForcingSectionOpen(sectionSteps, collapsedSteps) {
+  collapsedSteps = collapsedSteps || {};
+  return (sectionSteps || [])
+    .filter((s) => Object.prototype.hasOwnProperty.call(collapsedSteps, s.id) && collapsedSteps[s.id] === false)
+    .map((s) => s.id);
 }
 
 function renderUngrouped(ungroupedSteps, stateSteps, uiState) {
@@ -130,8 +148,13 @@ function renderBoard(config, state, uiState = {}) {
     .join('');
   const ungrouped = steps.filter((s) => s.sectionId == null);
   const ungroupedHtml = renderUngrouped(ungrouped, stateSteps, uiState);
+  const flagsHtml = renderFlags(config, state);
 
-  return sectionsHtml + ungroupedHtml + renderFlags(config, state);
+  if (!sectionsHtml && !ungroupedHtml && !flagsHtml) {
+    return '<div id="no-hints-msg">No steps configured yet. Open ⚙ Config to add sections/steps.</div>';
+  }
+
+  return sectionsHtml + ungroupedHtml + flagsHtml;
 }
 
 // commandForBoardAction(action, dataset) -> plain /cmd payload object, or null
@@ -163,8 +186,8 @@ function commandForBoardAction(action, dataset) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { renderBoard, isSectionComplete, commandForBoardAction };
+  module.exports = { renderBoard, isSectionComplete, commandForBoardAction, stepsForcingSectionOpen };
 } else {
   // Browser: expose as a global for operator.js (loaded via its own <script> tag).
-  window.BoardUI = { renderBoard, isSectionComplete, commandForBoardAction };
+  window.BoardUI = { renderBoard, isSectionComplete, commandForBoardAction, stepsForcingSectionOpen };
 }

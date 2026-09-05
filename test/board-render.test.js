@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { renderBoard, isSectionComplete, commandForBoardAction } = require('../public/board.js');
+const { renderBoard, isSectionComplete, commandForBoardAction, stepsForcingSectionOpen } = require('../public/board.js');
 
 function cfg() {
   return {
@@ -123,12 +123,66 @@ test('section header data-on reflects the actual rendered body state when bubble
   );
   const hdrMatch = html.match(/data-action="toggle-section" data-section-id="sec_desk" data-on="([^"]+)"/);
   assert.ok(hdrMatch, 'expected to find the section header element');
-  // Body is actually shown (bubble-up), so the next click should collapse it:
-  // data-on (the "next state if clicked" flag) must be "false", not "true".
-  assert.equal(hdrMatch[1], 'false');
+  // Body is actually shown (bubble-up); data-on now means "is currently open"
+  // (matching step headers' convention), so it must be "true".
+  assert.equal(hdrMatch[1], 'true');
   // The section wrapper must not carry the "collapsed" class either, since
   // its body is genuinely rendered.
   assert.doesNotMatch(html, /<div class="board-section collapsed">/);
+});
+
+test('stepsForcingSectionOpen returns ids of steps with an explicit force-open override', () => {
+  const steps = cfg().steps.filter((s) => s.sectionId === 'sec_desk');
+  assert.deepEqual(stepsForcingSectionOpen(steps, {}), []);
+  assert.deepEqual(stepsForcingSectionOpen(steps, { step_1: false }), ['step_1']);
+  // A force-closed step (true) must NOT be reported as forcing the section open.
+  assert.deepEqual(stepsForcingSectionOpen(steps, { step_1: true }), []);
+});
+
+test('Finding 1: a bubbled-up-open section header carries data-forcing-steps so a click can un-bubble it', () => {
+  const html = renderBoard(
+    cfg(),
+    { steps: {}, flags: {} },
+    { collapsedSections: { sec_desk: true }, collapsedSteps: { step_1: false } }
+  );
+  const hdrMatch = html.match(/data-action="toggle-section" data-section-id="sec_desk"[^>]*data-forcing-steps="([^"]*)"/);
+  assert.ok(hdrMatch, 'expected the bubbled-open section header to carry data-forcing-steps');
+  assert.equal(hdrMatch[1], 'step_1');
+});
+
+test('Finding 1: no data-forcing-steps attribute when the section is open on its own (no bubble-up)', () => {
+  const html = renderBoard(cfg(), { steps: {}, flags: {} }, {});
+  const hdrMatch = html.match(/data-action="toggle-section" data-section-id="sec_desk"[^>]*>/);
+  assert.ok(hdrMatch);
+  assert.doesNotMatch(hdrMatch[0], /data-forcing-steps/);
+});
+
+test('Finding 2: section and step headers now share the same data-on semantics (true = currently open)', () => {
+  // Closed section (auto-collapsed, all steps solved) -> data-on="false".
+  const closedHtml = renderBoard(
+    { sections: cfg().sections, steps: [cfg().steps[0]], progress: { flags: [] } },
+    { steps: { step_1: { solvedAt: 999 } }, flags: {} }
+  );
+  const closedMatch = closedHtml.match(/data-action="toggle-section" data-section-id="sec_desk" data-on="([^"]+)"/);
+  assert.ok(closedMatch);
+  assert.equal(closedMatch[1], 'false');
+
+  // Open section (has an unsolved step) -> data-on="true".
+  const openHtml = renderBoard(cfg(), { steps: {}, flags: {} });
+  const openMatch = openHtml.match(/data-action="toggle-section" data-section-id="sec_desk" data-on="([^"]+)"/);
+  assert.ok(openMatch);
+  assert.equal(openMatch[1], 'true');
+
+  // Step header convention (already true = open) stays the same, for comparison.
+  const stepMatch = openHtml.match(/data-action="toggle-step" data-step-id="step_1" data-on="([^"]+)"/);
+  assert.ok(stepMatch);
+  assert.equal(stepMatch[1], 'true');
+});
+
+test('Finding 5: renderBoard shows a placeholder message for a config with no sections, steps, or flags', () => {
+  const html = renderBoard({ sections: [], steps: [], progress: { flags: [] } }, { steps: {}, flags: {} });
+  assert.match(html, /No steps configured yet/);
+  assert.match(html, /id="no-hints-msg"/);
 });
 
 test('renderBoard renders sections in `order` regardless of their position in the config array', () => {
