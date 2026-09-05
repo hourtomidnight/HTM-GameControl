@@ -1,0 +1,157 @@
+// Operator progress board — pure rendering + command mapping.
+//
+// renderBoard/isSectionComplete/commandForBoardAction are PURE functions (no DOM,
+// no fetch) so they can be unit-tested under Node. Any browser-only wiring for
+// this page belongs in the DOM branch below, following the same dual-export
+// guard pattern as public/media.js and public/operator.js.
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[c]));
+}
+
+// A section is "complete" only if it has at least one step and every step
+// belonging to it (step.sectionId === sectionId) has a non-null solvedAt in
+// stateSteps. An empty section (zero matching steps) is never complete.
+function isSectionComplete(sectionId, steps, stateSteps) {
+  stateSteps = stateSteps || {};
+  const matching = (steps || []).filter((s) => s.sectionId === sectionId);
+  if (!matching.length) return false;
+  return matching.every((s) => stateSteps[s.id] && stateSteps[s.id].solvedAt != null);
+}
+
+function renderHintPad(stepId, hint) {
+  const isAudio = hint.type === 'audio';
+  const action = isAudio ? 'play-hint' : 'show-hint';
+  const label = isAudio ? (hint.label || hint.mediaRef || '') : (hint.text || '');
+  const bg = hint.color ? ` style="background:${esc(hint.color)}"` : '';
+  const keyBadge = hint.key
+    ? `<span class="hint-key-badge">${esc(hint.key)}</span>`
+    : `<span class="hint-key-badge no-key">&mdash;</span>`;
+  const icon = isAudio ? '🎧 ' : '';
+  return `<button class="hint-btn" data-action="${action}" data-step-id="${esc(stepId)}" data-hint-id="${esc(hint.id)}" data-text="${esc(hint.text || '')}"${bg}>
+    ${keyBadge}<span class="hint-text">${icon}${esc(label)}</span>
+  </button>`;
+}
+
+function renderStep(step, stateSteps, uiState) {
+  const solved = !!(stateSteps[step.id] && stateSteps[step.id].solvedAt != null);
+  const collapsedSteps = uiState.collapsedSteps || {};
+  const explicit = Object.prototype.hasOwnProperty.call(collapsedSteps, step.id)
+    ? collapsedSteps[step.id]
+    : null;
+  const collapsed = explicit != null ? explicit : solved;
+  const hintsHtml = (step.hints || []).map((h) => renderHintPad(step.id, h)).join('');
+  return `<div class="board-step${collapsed ? ' collapsed' : ''}" data-step-id="${esc(step.id)}">
+    <div class="board-step-hdr" data-action="toggle-step" data-step-id="${esc(step.id)}" data-on="${!collapsed}">
+      <span>${collapsed ? '▸' : '▾'} ${esc(step.name)}${solved ? ' ✓' : ''}</span>
+      <button class="btn-solve" data-action="toggle-solved" data-step-id="${esc(step.id)}" data-on="${!solved}">
+        ${solved ? 'Unsolve' : 'Solved'}
+      </button>
+    </div>
+    <div class="board-step-body">${collapsed ? '' : hintsHtml}</div>
+  </div>`;
+}
+
+function renderSection(section, sectionSteps, stateSteps, uiState) {
+  const complete = isSectionComplete(section.id, sectionSteps, stateSteps);
+  const solvedCount = sectionSteps.filter((s) => stateSteps[s.id] && stateSteps[s.id].solvedAt != null).length;
+  const collapsedSections = uiState.collapsedSections || {};
+  const collapsedSteps = uiState.collapsedSteps || {};
+  const explicit = Object.prototype.hasOwnProperty.call(collapsedSections, section.id)
+    ? collapsedSections[section.id]
+    : null;
+  const collapsed = explicit != null ? explicit : complete;
+  // An explicit per-step override to "expanded" always wins, even when the
+  // section itself is auto-collapsed (e.g. because the section is complete):
+  // the operator asked to see that one step, so the section must still render
+  // its body for that step to be visible.
+  const hasForcedOpenStep = sectionSteps.some(
+    (s) => Object.prototype.hasOwnProperty.call(collapsedSteps, s.id) && collapsedSteps[s.id] === false
+  );
+  const renderBody = !collapsed || hasForcedOpenStep;
+  const body = renderBody ? sectionSteps.map((s) => renderStep(s, stateSteps, uiState)).join('') : '';
+  return `<div class="board-section${collapsed ? ' collapsed' : ''}">
+    <div class="board-section-hdr" data-action="toggle-section" data-section-id="${esc(section.id)}" data-on="${!collapsed}">
+      <span>${collapsed ? '▸' : '▾'} ${esc(section.name)}</span><span>${solvedCount}/${sectionSteps.length}</span>
+    </div>
+    <div class="board-section-body">${body}</div>
+  </div>`;
+}
+
+function renderUngrouped(ungroupedSteps, stateSteps, uiState) {
+  if (!ungroupedSteps.length) return '';
+  const body = ungroupedSteps.map((s) => renderStep(s, stateSteps, uiState)).join('');
+  return `<div class="board-section board-section-ungrouped">
+    <div class="board-section-hdr"><span>Ungrouped</span></div>
+    <div class="board-section-body">${body}</div>
+  </div>`;
+}
+
+function renderFlags(config, state) {
+  const flags = (config.progress && config.progress.flags) || [];
+  if (!flags.length) return '';
+  const rows = flags.map((name) => {
+    const ts = state.flags && state.flags[name];
+    const on = ts != null;
+    return `<label class="board-flag"><input type="checkbox" data-action="set-flag" data-name="${esc(name)}" data-on="${!on}" ${on ? 'checked' : ''}/> ${esc(name)}</label>`;
+  }).join('');
+  return `<div class="board-flags">${rows}</div>`;
+}
+
+// renderBoard(config, state, uiState) -> HTML string for the board container's
+// innerHTML (sections in config order, an "Ungrouped" bucket for steps with no
+// sectionId, and a flags row at the bottom).
+//
+// uiState = { collapsedSections: { [sectionId]: bool }, collapsedSteps: { [stepId]: bool } }
+// An explicit true/false entry always overrides the auto-computed default
+// (section complete -> collapsed; step solved -> collapsed); an absent entry
+// falls back to the auto-computed value.
+function renderBoard(config, state, uiState = {}) {
+  config = config || {};
+  state = state || {};
+  const sections = (config.sections || []).slice().sort((a, b) => (a.order || 0) - (b.order || 0));
+  const steps = config.steps || [];
+  const stateSteps = state.steps || {};
+
+  const sectionsHtml = sections
+    .map((sec) => renderSection(sec, steps.filter((s) => s.sectionId === sec.id), stateSteps, uiState))
+    .join('');
+  const ungrouped = steps.filter((s) => s.sectionId == null);
+  const ungroupedHtml = renderUngrouped(ungrouped, stateSteps, uiState);
+
+  return sectionsHtml + ungroupedHtml + renderFlags(config, state);
+}
+
+// commandForBoardAction(action, dataset) -> plain /cmd payload object, or null
+// for an unrecognized action (mirroring operator.js's commandFor null-on-miss
+// convention). Never throws on a missing/malformed dataset.
+//
+// Note on 'show-hint': this function has no access to `config`, so it cannot
+// look up a text hint's `text` field itself. The caller is responsible for
+// reading the hint's text out of config and placing it into dataset.text
+// (e.g. via the hint button's own data-text attribute, as rendered by
+// renderHintPad above) before invoking this function.
+function commandForBoardAction(action, dataset) {
+  dataset = dataset && typeof dataset === 'object' ? dataset : {};
+  const on = (v) => v === 'true' || v === true;
+  switch (action) {
+    case 'show-hint':
+      return { type: 'show-hint', text: dataset.text, stepId: dataset.stepId, hintId: dataset.hintId };
+    case 'play-hint':
+      return { type: 'play-hint', stepId: dataset.stepId, hintId: dataset.hintId };
+    case 'toggle-solved':
+      return { type: 'solve-step', stepId: dataset.stepId, on: on(dataset.on) };
+    case 'set-flag':
+      return { type: 'set-flag', name: dataset.name, on: on(dataset.on) };
+    case 'stop-audio':
+      return { type: 'stop-audio' };
+    default:
+      return null;
+  }
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { renderBoard, isSectionComplete, commandForBoardAction };
+}
