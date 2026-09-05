@@ -20,6 +20,10 @@ function createGameEngine(deps) {
   let pendingFields = {};
   let timer = null;
   let midShowFired = false;
+  // Set when vol-up/vol-down mutates config.current().audio.volume in memory;
+  // cleared after a successful config.save() on a lifecycle transition. Gates
+  // safeConfigSave() so a byte-identical config is never rewritten (Ruling G).
+  let volumeDirty = false;
   const listeners = [];
 
   // Restore-on-boot: seed volume from persisted config, push to the player.
@@ -91,7 +95,17 @@ function createGameEngine(deps) {
   }
 
   function safeConfigSave() {
-    try { config.save(config.current()); } catch {}
+    if (!volumeDirty) return; // nothing changed since the last persist — skip the disk write
+    try {
+      const r = config.save(config.current());
+      if (r && r.ok === false) {
+        record('config-save-error', { _source: 'system', detail: { errors: r.errors } });
+        return; // leave volumeDirty set so the next transition retries
+      }
+      volumeDirty = false;
+    } catch (err) {
+      record('config-save-error', { _source: 'system', detail: { error: String((err && err.message) || err) } });
+    }
   }
 
   function audioEvents() {
@@ -133,7 +147,7 @@ function createGameEngine(deps) {
     if (audioPlayer && !midShowFired && !s.clockForward) {
       const mid = audioEvents().midShow;
       if (mid && mid.enabled && mid.file &&
-          (s.currentMin * 60 + s.currentSec) === mid.atSecondsRemaining) {
+          (s.currentMin * 60 + s.currentSec) <= mid.atSecondsRemaining) {
         safeAudio(() => audioPlayer.playEffect(mid.file));
         midShowFired = true;
       }
@@ -163,7 +177,11 @@ function createGameEngine(deps) {
     if (type === 'vol-up' || type === 'vol-down') {
       s.volume = Math.max(0, Math.min(1, s.volume + (type === 'vol-up' ? 0.01 : -0.01)));
       if (audioPlayer) safeAudio(() => audioPlayer.setVolume(s.volume));
-      if (config && config.current().audio) config.current().audio.volume = s.volume;
+      // Deliberate in-place mutation of the live config object: the volume delta is
+      // kept in memory only. The disk save (config.save) is intentionally deferred to
+      // lifecycle transitions (start/escaped/reset) so a volume click never writes
+      // config_history (Ruling G).
+      if (config && config.current().audio) { config.current().audio.volume = s.volume; volumeDirty = true; }
       record(type, { _source: msg._source }); emit(); return;
     }
 

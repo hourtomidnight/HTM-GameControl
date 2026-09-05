@@ -33,8 +33,6 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = { renderModel };
 } else {
   // ── Browser: subscribe to SSE `state` snapshots and paint the DOM ──────────
-  let prev = null;
-
   // DOM
   const splashEl     = document.getElementById('splash');
   const splashTextEl = document.getElementById('splash-text');
@@ -122,7 +120,6 @@ if (typeof module !== 'undefined' && module.exports) {
     }
 
     syncHints(s.activeHints || []);
-    prev = s;
   }
 
   channel.addEventListener('message', (e) => {

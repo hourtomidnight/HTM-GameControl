@@ -21,10 +21,9 @@ function makePlayer(overrides = {}) {
   const spawnCalls = [];
   const spawn = overrides.spawn || ((cmd, args, opts) => { spawnCalls.push({ cmd, args, opts }); return fakeChild(); });
   const existsBinary = overrides.existsBinary || (() => true); // default: every binary "found"
-  const exec = overrides.exec || (() => '');
   const eventStore = overrides.eventStore || fakeEventStore();
   const mediaRoot = overrides.mediaRoot || path.join(__dirname, 'fixtures', 'media');
-  const player = createAudioPlayer({ mediaRoot, eventStore, spawn, exec, existsBinary });
+  const player = createAudioPlayer({ mediaRoot, eventStore, spawn, existsBinary });
   return { player, spawnCalls, eventStore, mediaRoot };
 }
 
@@ -130,10 +129,34 @@ test('setVolume with a non-numeric argument leaves volume unchanged (no NaN)', (
   assert.equal(player.now().volume, 0.2);
 });
 
-test('setVolume degrades to audio-unavailable (no throw) when amixer is missing', () => {
-  const { player, eventStore } = makePlayer({ exec: () => { throw new Error('amixer: not found'); } });
+test('setVolume spawns amixer with the clamped percentage (fire-and-forget, not blocking)', () => {
+  const { player, spawnCalls } = makePlayer();
+  player.setVolume(0.73);
+  const call = spawnCalls.find(c => c.cmd === 'amixer');
+  assert.ok(call, 'amixer was spawned');
+  assert.deepEqual(call.args, ['set', 'Master', '73%']);
+});
+
+test('setVolume degrades to audio-unavailable (no throw) when spawn throws synchronously', () => {
+  const { player, eventStore } = makePlayer({ spawn: () => { throw new Error('amixer: not found'); } });
   assert.doesNotThrow(() => player.setVolume(0.5));
+  assert.equal(player.now().volume, 0.5); // return contract intact
   assert.ok(eventStore.events.some(e => e.type === 'audio-unavailable' && e.detail.channel === 'volume'));
+});
+
+test('setVolume swallows an async spawn error event and records audio-unavailable', () => {
+  const spawn = (cmd, args, opts) => {
+    const c = fakeChild();
+    queueMicrotask(() => (c._err || []).forEach(cb => cb(new Error('boom'))));
+    c.on = function (evt, cb) { (this._err = this._err || (evt === 'error' ? [] : this._err)); if (evt === 'error') this._err.push(cb); return this; };
+    return c;
+  };
+  const { player, eventStore } = makePlayer({ spawn });
+  assert.doesNotThrow(() => player.setVolume(0.4));
+  return new Promise((resolve) => setTimeout(() => {
+    assert.ok(eventStore.events.some(e => e.type === 'audio-unavailable' && e.detail.channel === 'volume'));
+    resolve();
+  }, 10));
 });
 
 test('now() reports music ref, effect count, and volume', async () => {

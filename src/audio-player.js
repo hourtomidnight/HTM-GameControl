@@ -24,7 +24,7 @@ function detectPlayers(existsBinary) {
   return resolved;
 }
 
-function createAudioPlayer({ mediaRoot, eventStore, spawn = realSpawn, exec = execSync, existsBinary = defaultExistsBinary }) {
+function createAudioPlayer({ mediaRoot, eventStore, spawn = realSpawn, existsBinary = defaultExistsBinary }) {
   const players = detectPlayers(existsBinary);
   let musicChild = null;
   let musicRef = null;
@@ -99,8 +99,16 @@ function createAudioPlayer({ mediaRoot, eventStore, spawn = realSpawn, exec = ex
     const n = Number(v);
     const clamped = Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : volume;
     volume = clamped;
-    try { exec(`amixer set Master ${Math.round(clamped * 100)}%`, { stdio: 'ignore' }); }
-    catch { record('audio-unavailable', null, { channel: 'volume' }); }
+    // Fire-and-forget: amixer must not block the event loop (game clock shares it).
+    // setVolume's return contract stays synchronous; only the ALSA side effect is async.
+    try {
+      const child = spawn('amixer', ['set', 'Master', `${Math.round(clamped * 100)}%`], { stdio: 'ignore' });
+      if (child && typeof child.on === 'function') {
+        child.on('error', () => record('audio-unavailable', null, { channel: 'volume' }));
+      }
+    } catch {
+      record('audio-unavailable', null, { channel: 'volume' });
+    }
     return clamped;
   }
 

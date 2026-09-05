@@ -500,3 +500,101 @@ test('audio: engine with no audioPlayer and no config keeps legacy behavior', ()
   assert.doesNotThrow(() => engine.command({ type: 'stop-audio' }));
   assert.strictEqual(es.query({ type: 'play-hint' }).length, 0); // no-op without audioPlayer
 });
+
+// ---- Final review: safety-property + spec-fidelity coverage ----
+
+function mkThrowingAudio(mode = 'sync') {
+  const bomb = mode === 'reject'
+    ? () => Promise.reject(new Error('async audio boom'))
+    : () => { throw new Error('sync audio boom'); };
+  return {
+    playEffect: bomb, playMusic: bomb, stopMusic: bomb, stopAll: bomb,
+    setVolume: bomb, now: () => ({}),
+  };
+}
+
+for (const mode of ['sync', 'reject']) {
+  test(`safety: a ${mode}-throwing audioPlayer never breaks the clock or phase transitions`, () => {
+    const es = createEventStore({ path: ':memory:' });
+    const gs = createGameStore(es.db);
+    let t = 10000;
+    const config = { current: () => audioCfg(), save: () => ({ ok: true, errors: [] }) };
+    const engine = createGameEngine({
+      eventStore: es, gameStore: gs, config, audioPlayer: mkThrowingAudio(mode),
+      now: () => t, setInterval: () => 0, clearInterval: () => {},
+    });
+    assert.doesNotThrow(() => engine.command({ type: 'start' }));
+    assert.strictEqual(engine.getState().phase, 'running');
+    // clock still ticks
+    const min0 = engine.getState().currentMin;
+    const sec0 = engine.getState().currentSec;
+    assert.doesNotThrow(() => engine.tickOnce());
+    const after = engine.getState();
+    assert.ok(after.currentMin !== min0 || after.currentSec !== sec0);
+    assert.doesNotThrow(() => engine.command({ type: 'show-hint', text: 'H', stepId: 'step_1', hintId: 'h1' }));
+    assert.doesNotThrow(() => engine.command({ type: 'escaped' }));
+    assert.strictEqual(engine.getState().phase, 'escaped');
+    assert.doesNotThrow(() => engine.command({ type: 'reset' }));
+    assert.strictEqual(engine.getState().phase, 'waiting');
+  });
+}
+
+test('safety: a config whose save() throws does not break start/reset', () => {
+  const es = createEventStore({ path: ':memory:' });
+  const gs = createGameStore(es.db);
+  let t = 10000;
+  const config = {
+    current: () => audioCfg(),
+    save: () => { throw new Error('disk full'); },
+  };
+  const engine = createGameEngine({
+    eventStore: es, gameStore: gs, config, audioPlayer: mkAudio(),
+    now: () => t, setInterval: () => 0, clearInterval: () => {},
+  });
+  engine.command({ type: 'vol-up' }); // make the config dirty so save() is actually attempted
+  assert.doesNotThrow(() => engine.command({ type: 'start' }));
+  assert.strictEqual(engine.getState().phase, 'running');
+  assert.doesNotThrow(() => engine.command({ type: 'reset' }));
+  assert.strictEqual(engine.getState().phase, 'waiting');
+  assert.ok(es.query({ type: 'config-save-error' }).length >= 1); // error recorded, not swallowed silently
+});
+
+test('config-save-error is recorded when config.save returns { ok: false }', () => {
+  const es = createEventStore({ path: ':memory:' });
+  const gs = createGameStore(es.db);
+  let t = 10000;
+  const config = {
+    current: () => audioCfg(),
+    save: () => ({ ok: false, errors: ['bad schema'] }),
+  };
+  const engine = createGameEngine({
+    eventStore: es, gameStore: gs, config, audioPlayer: mkAudio(),
+    now: () => t, setInterval: () => 0, clearInterval: () => {},
+  });
+  engine.command({ type: 'vol-up' });
+  engine.command({ type: 'start' });
+  assert.strictEqual(es.query({ type: 'config-save-error' }).length, 1);
+});
+
+test('config.save is skipped entirely when the volume never changed', () => {
+  const { engine, saved } = mkA();
+  engine.command({ type: 'start' });
+  engine.command({ type: 'escaped' });
+  engine.command({ type: 'reset' });
+  assert.strictEqual(saved.length, 0); // no volume delta -> no persist on any transition
+});
+
+test('midShow fires on a crossing even when an adjustment jumps past the threshold', () => {
+  const { engine, audio } = mkA();
+  engine.command({ type: 'start' });
+  // drive down to ~2:30, then jump past 120s remaining in one sub-min
+  for (let i = 0; i < 57; i++) engine.command({ type: 'sub-min' }); // 60 -> 3 (3:00)
+  engine.command({ type: 'add-sec' }); engine.command({ type: 'add-sec' }); // 3:02
+  engine.command({ type: 'sub-min' }); // 2:02
+  engine.command({ type: 'sub-min' }); // 1:02  -> jumped past 120s without landing on it
+  const before = audio.args1('playEffect').filter(f => f === 'g/2min.mp3').length;
+  engine.tickOnce(); // 1:01
+  const after = audio.args1('playEffect').filter(f => f === 'g/2min.mp3').length;
+  assert.strictEqual(before, 0);
+  assert.strictEqual(after, 1);
+});
