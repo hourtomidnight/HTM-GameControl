@@ -267,7 +267,9 @@ function renderFlags(flags) {
 // renderBoardEditor(config) -> HTML string for the Board tab editor body.
 function renderBoardEditor(config) {
   config = config || {};
-  const sections = (config.sections || []).slice().sort((a, b) => (a.order || 0) - (b.order || 0));
+  // Section order follows array position — the editor's working state carries no
+  // `order` field, and collectBoardConfig renumbers `order` from array position.
+  const sections = (config.sections || []).slice();
   const steps = config.steps || [];
   const flags = (config.progress && config.progress.flags) || [];
 

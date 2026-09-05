@@ -189,6 +189,70 @@ test('renderBoardEditor({}) renders add buttons + empty state, no crash', () => 
   assert.match(html, /data-role="empty-state"/);
 });
 
+test('round-trip: renderBoardEditor -> scrape DOM attrs -> collectBoardConfig reproduces the config', () => {
+  // Pins the render <-> DOM-read contract that config.html's save flow depends on
+  // (Finding 1). Scrape the same data-role/data-field/data-id attributes that
+  // readBoardStateFromDOM() reads, into the same plain-state shape, then collect.
+  const cfg = collectBoardConfig(sampleState());
+  const html = renderBoardEditor({ sections: cfg.sections, steps: cfg.steps, progress: cfg.progress });
+
+  const re = /data-role="(section|step|hint|flag)"([^>]*)>/g;
+  const marks = [];
+  let m;
+  while ((m = re.exec(html))) marks.push({ kind: m[1], attrs: m[2], start: m.index, end: re.lastIndex });
+
+  const idOf = (attrs) => { const mm = /data-id="([^"]*)"/.exec(attrs); return mm ? mm[1] : ''; };
+  const sliceAfter = (i) => html.slice(marks[i].end, i + 1 < marks.length ? marks[i + 1].start : html.length);
+  const fieldVal = (s, field) => {
+    const mm = new RegExp('data-field="' + field + '"[^>]*\\svalue="([^"]*)"').exec(s);
+    return mm ? mm[1] : '';
+  };
+  const selectedOpt = (s, field) => {
+    const sel = new RegExp('<select data-field="' + field + '">([\\s\\S]*?)<\\/select>').exec(s);
+    if (!sel) return '';
+    const opt = /<option value="([^"]*)"[^>]*selected/.exec(sel[1]);
+    return opt ? opt[1] : '';
+  };
+
+  const sections = [];
+  const steps = [];
+  const flags = [];
+  let curStep = -1;
+
+  marks.forEach((mk, i) => {
+    const s = sliceAfter(i);
+    if (mk.kind === 'section') {
+      const note = /<textarea data-field="note"[^>]*>([^<]*)<\/textarea>/.exec(s);
+      sections.push({ id: idOf(mk.attrs), name: fieldVal(s, 'name'), note: note ? note[1] : '' });
+    } else if (mk.kind === 'step') {
+      const sid = selectedOpt(s, 'sectionId');
+      steps.push({ id: idOf(mk.attrs), name: fieldVal(s, 'name'), sectionId: sid || null, hints: [] });
+      curStep = steps.length - 1;
+    } else if (mk.kind === 'hint') {
+      const key = /data-field="key" data-key="([^"]*)"/.exec(s);
+      const mediaRef = /data-field="mediaRef">([^<]*)<\/span>/.exec(s);
+      steps[curStep].hints.push({
+        id: idOf(mk.attrs),
+        type: selectedOpt(s, 'type') === 'audio' ? 'audio' : 'text',
+        text: fieldVal(s, 'text'),
+        mediaRef: mediaRef ? mediaRef[1] : '',
+        label: fieldVal(s, 'label'),
+        color: fieldVal(s, 'color'),
+        icon: fieldVal(s, 'icon'),
+        key: key ? key[1] : '',
+        countsAsClue: /data-field="countsAsClue" checked/.test(s),
+      });
+    } else if (mk.kind === 'flag') {
+      flags.push(fieldVal(s, 'value'));
+    }
+  });
+
+  const out = collectBoardConfig({ sections, steps, flags });
+  assert.deepEqual(out.sections, cfg.sections);
+  assert.deepEqual(out.steps, cfg.steps);
+  assert.deepEqual(out.progress, cfg.progress);
+});
+
 test('renderAudioEventsCard: six rows, midShow number input, per-row picker, reflects config', () => {
   const html = renderAudioEventsCard({ audio: { events: {
     start: { file: 'intro.mp3', enabled: true },

@@ -564,7 +564,7 @@ function attachKeyCapture(el) {
     e.preventDefault();
     el.dataset.key = '';
     el.textContent = 'click to assign';
-    el.className = 'key-capture';
+    el.classList.remove('has-key', 'capturing');
   });
 
   el.addEventListener('keydown', (e) => {
@@ -600,6 +600,29 @@ function enhanceKeyCaptures(root) {
 let boardState = { sections: [], steps: [], flags: [] };
 let audioState = { events: {} };
 const NEW_HINT = () => ({ id: '', type: 'text', text: '', mediaRef: '', label: '', color: '', icon: '', key: '', countsAsClue: true });
+
+// Build the in-memory board-editor working state (sections/steps/flags) from a
+// config-shaped object. Touches ONLY the board editor — the Audio Events card
+// keeps its own audioState seeding path. Called on initial populate AND again in
+// the save handler with the freshly-collected config so newly-minted ids are
+// written back into boardState (and the re-rendered DOM) immediately.
+function seedBoardState(cfg) {
+  boardState = {
+    sections: (cfg.sections || []).map(s => ({ id: s.id || '', name: s.name || '', note: s.note || '' })),
+    steps: (cfg.steps || []).map(s => ({
+      id: s.id || '',
+      name: s.name || '',
+      sectionId: s.sectionId != null ? s.sectionId : null,
+      hints: (s.hints || []).map(h => ({
+        id: h.id || '', type: h.type === 'audio' ? 'audio' : 'text',
+        text: h.text || '', mediaRef: h.mediaRef || '',
+        label: h.label || '', color: h.color || '', icon: h.icon || '', key: h.key || '',
+        countsAsClue: h.countsAsClue !== false,
+      })),
+    })),
+    flags: (cfg.progress && Array.isArray(cfg.progress.flags)) ? cfg.progress.flags.slice() : [],
+  };
+}
 
 function renderBoard() {
   boardContainer.innerHTML = ConfigBoard.renderBoardEditor({
@@ -686,6 +709,7 @@ function openMediaPicker(onPick) {
   window.open('media.html?pick=1', 'mediapick', 'width=900,height=800');
 }
 window.addEventListener('message', (e) => {
+  if (e.origin !== location.origin) return;
   if (!(e.data && e.data.type === 'media-picked' && typeof e.data.path === 'string')) return;
   if (pendingPick) { const fn = pendingPick; pendingPick = null; fn(e.data.path); }
 });
@@ -851,21 +875,7 @@ function populateForm(cfg) {
   startStopCapture.className = 'key-capture' + (key ? ' has-key' : '');
 
   // Board editor: seed boardState from config (sections/steps/progress.flags) and render.
-  boardState = {
-    sections: (cfg.sections || []).map(s => ({ id: s.id || '', name: s.name || '', note: s.note || '' })),
-    steps: (cfg.steps || []).map(s => ({
-      id: s.id || '',
-      name: s.name || '',
-      sectionId: s.sectionId != null ? s.sectionId : null,
-      hints: (s.hints || []).map(h => ({
-        id: h.id || '', type: h.type === 'audio' ? 'audio' : 'text',
-        text: h.text || '', mediaRef: h.mediaRef || '',
-        label: h.label || '', color: h.color || '', icon: h.icon || '', key: h.key || '',
-        countsAsClue: h.countsAsClue !== false,
-      })),
-    })),
-    flags: (cfg.progress && Array.isArray(cfg.progress.flags)) ? cfg.progress.flags.slice() : [],
-  };
+  seedBoardState(cfg);
   renderBoard();
 
   // Audio Events card: seed audioState from config.audio.events and render.
@@ -918,6 +928,13 @@ document.getElementById('save-btn').addEventListener('click', async () => {
   merged.sections = board.sections;
   merged.steps    = board.steps;
   merged.progress = { ...(base.progress || {}), ...board.progress };
+
+  // Write the freshly-minted ids back into boardState + the rendered DOM so
+  // new sections become selectable as step parents and id assignment stays
+  // stable across repeated saves in one session. Board editor only — leaves
+  // the Audio Events card untouched.
+  seedBoardState({ sections: board.sections, steps: board.steps, progress: board.progress });
+  renderBoard();
 
   const audioEv = ConfigBoard.collectAudioEvents(readAudioStateFromDOM());
   merged.audio = {

@@ -181,10 +181,10 @@ test('syncHotkeysTab sources its rows from config.steps, not hintGroups', async 
   const fg = fakeGoogle();
   const cfg = { current: () => ({
     sheets: { hintsSpreadsheetId: 'hid' },
-    hintGroups: [{ name: 'Briefcase', hints: [{ text: 'a', key: 'F1' }] }],
+    hintGroups: [{ name: 'FROM HINTGROUPS — should be ignored', hints: [{ text: 'a', key: 'F1' }] }],
     steps: [
-      { id: 'step_1', name: 'STALE — should be ignored', order: 1, hints: [
-        { id: 'h1', type: 'text', text: 'old', key: 'F9' },
+      { id: 'step_1', name: 'FROM STEPS — expected', order: 1, hints: [
+        { id: 'h1', type: 'text', text: 'step hint', key: 'F9' },
       ] },
     ],
   }) };
@@ -195,7 +195,7 @@ test('syncHotkeysTab sources its rows from config.steps, not hintGroups', async 
   await sheets.syncHotkeysTab();
   assert.deepStrictEqual(fg.calls.update[0].requestBody.values, [
     ['Group', 'Hint', 'Hotkey'],
-    ['STALE — should be ignored', 'old', 'F9'],
+    ['FROM STEPS — expected', 'step hint', 'F9'],
   ]);
 });
 
