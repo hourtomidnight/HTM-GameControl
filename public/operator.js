@@ -12,8 +12,16 @@ const COMMisc = {
 
 function commandFor(id) { return COMMisc[id] ? { type: COMMisc[id] } : null; }
 
+// The board's generic [data-action] click-delegate must NOT also dispatch for
+// actions that already have their own dedicated DOM event listener — doing so
+// would send a duplicate command per user interaction. Currently only
+// 'set-flag' (handled exclusively via the flag checkbox's 'change' listener)
+// falls into this category. Kept as a pure, exported function so the
+// exclusion can be unit-tested without a DOM.
+function isGenericDispatchExcluded(action) { return action === 'set-flag'; }
+
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { commandFor };
+  module.exports = { commandFor, isGenericDispatchExcluded };
 } else {
   // ── channel is defined by channel.js (SSE + HTTP POST, works cross-device) ──
   const post = (msg) => {
@@ -223,6 +231,11 @@ if (typeof module !== 'undefined' && module.exports) {
       renderBoardNow();
       return;
     }
+    // The flag checkbox itself carries data-action="set-flag" and is handled
+    // exclusively by the dedicated 'change' listener below — falling through to
+    // the generic dispatch here would send a second, duplicate set-flag command
+    // per toggle (double-writing the append-only event store / Sheets mirror).
+    if (isGenericDispatchExcluded(action)) return;
 
     const c = commandForBoardAction(action, el.dataset);
     if (!c) return;
