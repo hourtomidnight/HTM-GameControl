@@ -207,6 +207,44 @@
 
     #no-hints-msg { color: #334; font-size: 13px; text-align: center; margin-top: 30px; }
 
+    /* ── Progress board ── */
+    .board-section { margin-bottom: 14px; }
+
+    .board-section-hdr {
+      font-size: 11px; font-weight: bold; color: #7fb8ff;
+      text-transform: uppercase; letter-spacing: 1px;
+      padding: 5px 8px;
+      background: #131335;
+      border-radius: 6px 6px 0 0;
+      border-bottom: 1px solid #1e2a5a;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .board-section-hdr:hover { background: #181848; }
+
+    .board-section-body { display: flex; flex-direction: column; gap: 8px; padding-top: 5px; }
+    .board-section.collapsed .board-section-body { display: none; }
+
+    .board-step {
+      background: #10102a; border: 1px solid #1e1e4a; border-radius: 7px;
+      padding: 6px 8px;
+    }
+    .board-step-hdr {
+      font-size: 12px; font-weight: bold; color: #cdd;
+      display: flex; align-items: center; justify-content: space-between;
+      cursor: pointer; padding: 3px 2px;
+    }
+    .board-step-body { display: flex; flex-direction: column; gap: 5px; padding-top: 5px; }
+    .board-step.collapsed .board-step-body { display: none; }
+
+    .btn-solve {
+      background: #0f3460; color: #a0c4ff; font-size: 10px;
+      padding: 4px 9px; border-radius: 5px;
+    }
+
+    .board-flags { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+    .board-flag { display: flex; align-items: center; gap: 7px; font-size: 12px; color: #ccc; cursor: pointer; }
+
     /* ── Active hints ── */
     #active-hints-list { display: flex; flex-direction: column; gap: 5px; }
     .active-hint-row {
@@ -293,7 +331,8 @@
     </div>
   </div>
 
-  <button class="btn-cfg" id="btn-media" style="margin-left:auto;align-self:flex-start;">🎵 Media</button>
+  <button class="btn-cfg" id="btn-stop-audio" style="margin-left:auto;align-self:flex-start;">🔇 Stop Audio</button>
+  <button class="btn-cfg" id="btn-media" style="align-self:flex-start;">🎵 Media</button>
   <button class="btn-cfg" id="btn-cfg" style="align-self:flex-start;">⚙ Config</button>
 </div>
 
@@ -353,8 +392,8 @@
 
 <!-- Hints panel -->
 <div id="hints-panel">
-  <div class="panel-hdr">Hints — click to display on game screen</div>
-  <div id="hints-list">
+  <div class="panel-hdr">Progress Board</div>
+  <div id="board-root">
     <div id="no-hints-msg">No hints configured. Open ⚙ Config to add hint groups.</div>
   </div>
 </div>
@@ -445,6 +484,7 @@
   })();
 </script>
 <script src="channel.js"></script>
+<script src="board.js"></script>
 <script src="operator.js"></script>
 </body>
 </html>

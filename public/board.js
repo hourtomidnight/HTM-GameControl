@@ -164,4 +164,7 @@ function commandForBoardAction(action, dataset) {
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { renderBoard, isSectionComplete, commandForBoardAction };
+} else {
+  // Browser: expose as a global for operator.js (loaded via its own <script> tag).
+  window.BoardUI = { renderBoard, isSectionComplete, commandForBoardAction };
 }

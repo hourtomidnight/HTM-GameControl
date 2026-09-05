@@ -31,7 +31,7 @@ if (typeof module !== 'undefined' && module.exports) {
   const statusBadge = document.getElementById('status-badge');
   const volDisplay  = document.getElementById('vol-display');
   const clueCountEl = document.getElementById('clue-count-display');
-  const hintsList   = document.getElementById('hints-list');
+  const boardRoot   = document.getElementById('board-root');
   const pauseBtn    = document.getElementById('btn-pause');
 
   // ── Session info fields (debounced live-sync to Sheets) ───────────────────
@@ -152,6 +152,7 @@ if (typeof module !== 'undefined' && module.exports) {
     clueCountEl.textContent = data.clueCount || 0;
 
     buildActiveHints(data.activeHints || []);
+    renderBoardNow();
   });
 
   function buildActiveHints(hints) {
@@ -180,76 +181,69 @@ if (typeof module !== 'undefined' && module.exports) {
     });
   }
 
-  // ── Build grouped hints from config ─────────────────────────────────────
-  function buildHints() {
-    const cfg = loadConfig();
-    const groups = cfg.hintGroups || [];
-    hintsList.innerHTML = '';
+  // ── Progress board (public/board.js — global export, loaded via <script>) ──
+  const { renderBoard, commandForBoardAction } = window.BoardUI;
 
-    if (!groups.length || groups.every(g => !g.hints || g.hints.length === 0)) {
-      hintsList.innerHTML = '<div id="no-hints-msg">No hints configured. Open ⚙ Config to add hint groups.</div>';
+  const UI_STATE_KEY = 'htm-op-board-ui'; // follows the 'htm-op-*' convention used by col-divider/notes persistence
+  function loadUiState() {
+    try { return JSON.parse(localStorage.getItem(UI_STATE_KEY) || '{}'); } catch (e) { return {}; }
+  }
+  function saveUiState() {
+    try { localStorage.setItem(UI_STATE_KEY, JSON.stringify(uiState)); } catch (e) {}
+  }
+  let uiState = loadUiState();
+
+  function renderBoardNow() {
+    const cfg = loadConfig();
+    boardRoot.innerHTML = renderBoard(cfg, currentState, uiState);
+  }
+
+  boardRoot.addEventListener('click', (e) => {
+    const el = e.target.closest('[data-action]');
+    if (!el) return;
+    const action = el.dataset.action;
+
+    if (action === 'toggle-section') {
+      // board.js renders the section header's data-on as `!bodyShown` (i.e. the
+      // section's CURRENT collapsed-ness) — after a toggle, the new collapsed
+      // value equals the section's current shown-ness, i.e. `data-on !== 'true'`.
+      uiState.collapsedSections = uiState.collapsedSections || {};
+      uiState.collapsedSections[el.dataset.sectionId] = el.dataset.on !== 'true';
+      saveUiState();
+      renderBoardNow();
+      return;
+    }
+    if (action === 'toggle-step') {
+      // board.js renders the step header's data-on as `!collapsed` (i.e. whether
+      // the step is currently OPEN) — after a toggle, the new collapsed value
+      // equals that same current-open flag, i.e. `data-on === 'true'`.
+      uiState.collapsedSteps = uiState.collapsedSteps || {};
+      uiState.collapsedSteps[el.dataset.stepId] = el.dataset.on === 'true';
+      saveUiState();
+      renderBoardNow();
       return;
     }
 
-    groups.forEach((group, gi) => {
-      if (!group.hints || group.hints.length === 0) return;
-
-      const groupEl = document.createElement('div');
-      groupEl.className = 'hint-group';
-
-      // Collapsible header
-      const hdr = document.createElement('div');
-      hdr.className = 'hint-group-header';
-      hdr.innerHTML = '<span>' + (group.name || 'Group ' + (gi + 1)) + '</span>' +
-                      '<span class="toggle-icon">▾</span>';
-      hdr.addEventListener('click', () => {
-        const body = groupEl.querySelector('.hint-group-body');
-        const icon = hdr.querySelector('.toggle-icon');
-        body.classList.toggle('collapsed');
-        icon.textContent = body.classList.contains('collapsed') ? '▸' : '▾';
-      });
-
-      const body = document.createElement('div');
-      body.className = 'hint-group-body';
-
-      group.hints.forEach((hint, hi) => {
-        const btn = document.createElement('button');
-        btn.className = 'hint-btn';
-
-        const badge = document.createElement('span');
-        badge.className = 'hint-key-badge' + (hint.key ? '' : ' no-key');
-        badge.textContent = hint.key || '—';
-
-        const textEl = document.createElement('span');
-        textEl.className = 'hint-text';
-        textEl.textContent = hint.text;
-
-        btn.appendChild(badge);
-        btn.appendChild(textEl);
-
-        btn.addEventListener('click', () => {
-          cmd('show-hint', { text: hint.text });
-          // Flash the button
-          btn.style.background = '#2a2a80';
-          setTimeout(() => btn.style.background = '', 300);
-        });
-
-        body.appendChild(btn);
-      });
-
-      groupEl.appendChild(hdr);
-      groupEl.appendChild(body);
-      hintsList.appendChild(groupEl);
-    });
-  }
-
-  // Reload hints when config changes (storage event fires in same-browser tabs)
-  window.addEventListener('storage', (e) => {
-    if (e.key === 'htm-config') buildHints();
+    const c = commandForBoardAction(action, el.dataset);
+    if (!c) return;
+    cmd(c.type, c);
   });
 
+  // Flag checkboxes: 'change' is the semantically correct event for a checkbox
+  // (fires once the checked state has actually settled) — the codebase has no
+  // pre-existing checkbox wiring to follow, so this is the default choice.
+  boardRoot.addEventListener('change', (e) => {
+    const el = e.target.closest('[data-action="set-flag"]');
+    if (!el) return;
+    const c = commandForBoardAction('set-flag', { name: el.dataset.name, on: String(el.checked) });
+    if (c) cmd(c.type, c);
+  });
+
+  const stopAudioBtn = document.getElementById('btn-stop-audio');
+  if (stopAudioBtn) stopAudioBtn.addEventListener('click', () => cmd('stop-audio'));
+
   // Initial load — fetch from server so all devices share the same config
-  fetchAndCacheConfig().then(() => buildHints());
+  fetchAndCacheConfig().then(() => renderBoardNow());
 
   // Ask the server for the current snapshot on load.
   setTimeout(() => cmd('request-state'), 300);

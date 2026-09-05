@@ -273,3 +273,12 @@ test('a missing progress module never crashes solve-step/set-flag commands', () 
   assert.doesNotThrow(() => engine.command({ type: 'solve-step', stepId: 'step_1', on: true }));
   assert.doesNotThrow(() => engine.command({ type: 'set-flag', name: 'f', on: true }));
 });
+
+test('unrecognized command types (play-hint, stop-audio) are silent no-ops, not crashes', () => {
+  const { engine } = mk();
+  engine.command({ type: 'start' });
+  const before = engine.getState();
+  assert.doesNotThrow(() => engine.command({ type: 'play-hint', stepId: 'x', hintId: 'y' }));
+  assert.doesNotThrow(() => engine.command({ type: 'stop-audio' }));
+  assert.deepEqual(engine.getState(), before); // no state change from either
+});
