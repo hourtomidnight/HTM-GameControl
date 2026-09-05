@@ -49,41 +49,7 @@
     }
     .vol-val { color: #a0c4ff; font-weight: bold; width: 38px; }
 
-    /* ── Groups editor ── */
-    #groups-container { display: flex; flex-direction: column; gap: 14px; }
-
-    .group-card {
-      background: #0f1a35;
-      border: 1px solid #1e2d55;
-      border-radius: 9px;
-      overflow: hidden;
-    }
-    .group-header {
-      display: flex; align-items: center; gap: 8px;
-      background: #1a2a50; padding: 10px 14px;
-    }
-    .group-name {
-      flex: 1; background: #0d1f40; border: 1px solid #1e3a6e;
-      color: #fff; border-radius: 6px; padding: 5px 9px; font-size: 14px;
-      font-weight: bold;
-    }
-    .group-name::placeholder { color: #445; }
-
-    .group-body { padding: 10px 14px 12px; }
-
-    /* ── Hints ── */
-    .hints-list { display: flex; flex-direction: column; gap: 7px; margin-bottom: 10px; }
-
-    .hint-row {
-      display: flex; align-items: center; gap: 8px;
-    }
-    .hint-text-input {
-      flex: 1; background: #0f3460; border: 1px solid #1a4a80;
-      color: #fff; border-radius: 6px; padding: 5px 9px; font-size: 13px;
-    }
-    .hint-text-input::placeholder { color: #445; }
-
-    /* Key capture field */
+    /* Key capture field (Start/Stop key on the Hotkeys tab) */
     .key-capture {
       width: 110px; flex-shrink: 0;
       background: #0a1a30; border: 1px solid #1a3a60;
@@ -104,11 +70,6 @@
     button:hover  { filter: brightness(1.2); }
     button:active { transform: scale(0.96); }
 
-    .btn-icon { width: 30px; height: 30px; font-size: 15px; display: flex; align-items: center; justify-content: center; }
-    .btn-del-hint  { background: #3a1515; color: #ff7777; }
-    .btn-del-group { background: #3a1515; color: #ff7777; padding: 5px 10px; }
-    .btn-add-hint  { background: #0f3040; color: #7fb8ff; padding: 6px 12px; margin-top: 2px; font-size: 12px; }
-    .btn-add-group { background: #1a3a5e; color: #a0c4ff; padding: 9px 18px; font-size: 13px; }
     .btn-save  { background: #2e7d32; color: #fff; padding: 11px 28px; font-size: 14px; }
     .btn-reset { background: #424242; color: #ccc; padding: 11px 20px; font-size: 14px; }
 
@@ -124,6 +85,58 @@
     .kbd-table { width: 100%; border-collapse: collapse; font-size: 13px; }
     .kbd-table td { padding: 4px 10px; border-bottom: 1px solid #0f3460; color: #aaa; }
     .kbd-table td:first-child { color: #a0c4ff; font-family: monospace; }
+
+    /* ── Board editor (config-board.js markup) ── */
+    .cb-editor { display: flex; flex-direction: column; gap: 14px; }
+    .cb-section {
+      background: #0f1a35; border: 1px solid #1e2d55; border-radius: 9px;
+      padding: 12px 14px;
+    }
+    .cb-section.cb-ungrouped { background: #101527; border-style: dashed; }
+    .cb-section > h4, .cb-flags > h4 {
+      font-size: 11px; color: #a0c4ff; text-transform: uppercase; letter-spacing: 1.5px;
+      margin-bottom: 8px;
+    }
+    .cb-section > input[data-field="name"] {
+      font-weight: bold; margin-bottom: 6px;
+    }
+    .cb-section > textarea[data-field="note"] {
+      width: 100%; min-height: 34px; background: #0f3460; border: 1px solid #1a4a80;
+      color: #fff; border-radius: 6px; padding: 5px 9px; font-size: 13px; font-family: Arial, sans-serif;
+      margin-bottom: 6px;
+    }
+    .cb-steps { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+    .cb-step {
+      background: #0d1f40; border: 1px solid #1e3a6e; border-radius: 7px;
+      padding: 8px 10px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+    }
+    .cb-step > input[data-field="name"] { flex: 1 1 160px; font-weight: bold; }
+    .cb-hints { flex: 1 1 100%; display: flex; flex-direction: column; gap: 6px; margin: 6px 0; }
+    .cb-hint {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 5px;
+      background: #0a1a30; border: 1px solid #1a3a60; border-radius: 6px; padding: 5px 7px;
+    }
+    .cb-hint input[type="text"] { flex: 1 1 90px; min-width: 70px; font-size: 12px; padding: 4px 7px; }
+    .cb-hint select, .cb-step select { background: #0f3460; border: 1px solid #1a4a80; color: #fff; border-radius: 6px; padding: 4px 6px; font-size: 12px; }
+    .cb-mediaref, .cb-audio-file {
+      font-family: monospace; font-size: 11px; color: #7fffcf; word-break: break-all;
+      min-width: 60px;
+    }
+    .cb-hint label, .cb-audio-event label { font-size: 11px; color: #aaa; white-space: nowrap; }
+    .cb-editor button, .cb-audio-events button {
+      background: #1a3a5e; color: #a0c4ff; padding: 4px 9px; font-size: 12px;
+    }
+    .cb-editor button[disabled] { opacity: 0.4; cursor: not-allowed; }
+    .cb-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+    .cb-flags { display: flex; flex-direction: column; gap: 6px; }
+    .cb-flag { display: flex; gap: 6px; align-items: center; }
+    .cb-audio-events { display: flex; flex-direction: column; gap: 8px; }
+    .cb-audio-event {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+      background: #0f1a35; border: 1px solid #1e2d55; border-radius: 7px; padding: 7px 10px;
+    }
+    .cb-audio-name { font-weight: bold; color: #cdd6e8; width: 90px; }
+    .cb-audio-event input[type="number"] { width: 70px; }
 
     /* ── Tab navigation ── */
     .tabs {
@@ -196,7 +209,7 @@
 <div class="tabs" id="config-tabs">
   <button class="tab-btn active" data-tab="general">General</button>
   <button class="tab-btn" data-tab="sheets">Google Sheets</button>
-  <button class="tab-btn" data-tab="hints">Hint Groups</button>
+  <button class="tab-btn" data-tab="board">Board</button>
   <button class="tab-btn" data-tab="hotkeys">Hotkeys</button>
   <button class="tab-btn" data-tab="reference">Reference</button>
 </div>
@@ -227,6 +240,17 @@
       </label>
       <input type="text" id="intro-media-path" placeholder="e.g. intro.mp4 or intro.mp3 — empty for none" />
     </div>
+  </div>
+
+  <div class="card">
+    <h2>Audio</h2>
+    <p style="color:#667;font-size:12px;margin-bottom:12px;line-height:1.5;">
+      The six global cues. Tick <b>enabled</b> and pick a file from the
+      <a href="/media.html" style="color:#a0c4ff;">Media Library</a>. <code>midShow</code> also fires
+      once at the given seconds-remaining mark. The <b>Start volume</b> slider above sets
+      <code>audio.volume</code>.
+    </p>
+    <div id="audio-events-container"></div>
   </div>
 
   <div class="card">
@@ -312,6 +336,10 @@
         </tbody>
       </table></div>
       <div class="hint-note" style="margin-left:0;">Row 1 is the header. One row per configured hint; Hotkey is blank if none is assigned.</div>
+
+      <p style="margin:14px 0 4px;"><b>Per-step timings</b> — when a step's clue is given or the step is solved, the
+      time is written to the local append-only event store on the Pi (always), and mirrored to the
+      <code>Hotkeys</code> tab / a checklist tab when one is configured. Nothing to set up here.</p>
 
       <p style="margin:14px 0 4px;"><b>Operators tab</b> (in the Tracker sheet) — the app <i>reads</i> this, never writes it:</p>
       Names in <b>column B, starting at row 2</b>, on a tab named exactly <code>Drop Down options</code>. Those become the choices in the operator picker on the console.
@@ -399,23 +427,20 @@
   </div>
 </div>
 
-<!-- ═══ HINT GROUPS ═══ -->
-<div class="tab-panel" data-panel="hints">
+<!-- ═══ BOARD ═══ -->
+<div class="tab-panel" data-panel="board">
   <div class="card">
-    <h2>Hint Groups &amp; Hints</h2>
+    <h2>Board — Sections, Steps &amp; Hints</h2>
     <p style="color:#667;font-size:12px;margin-bottom:14px;line-height:1.5;">
-      Group your hints (e.g. by puzzle). Give any hint a keyboard shortcut: click its key box, then press
-      the key you want. Click again to change it, right-click to clear. All assigned shortcuts are listed
-      under the <b>Hotkeys</b> tab.<br>
-      You can also bulk-edit in the Google Sheet's <code>Hotkeys</code> tab (<code>Group | Hint | Hotkey</code>,
-      row 1 = header) and pull it back in with <b>Import from Sheet</b> — review, then <b>Save</b>.
+      Organise the room as <b>Sections</b> → <b>Steps</b> → <b>Hints</b>. Steps left in the
+      <b>Ungrouped</b> block belong to no section. Each hint is <b>Text</b> or <b>Audio</b>
+      (audio hints reference a file from the <a href="/media.html" style="color:#a0c4ff;">Media Library</a>);
+      give any hint a keyboard shortcut by typing it in the <code>key</code> box, and mark whether it
+      <b>counts as a clue</b>. The <b>Flags</b> list holds free-form progress markers.
+      Assigned shortcuts are summarised under the <b>Hotkeys</b> tab and mirrored to the Google Sheet's
+      <code>Hotkeys</code> tab (<code>Step | Hint | Hotkey</code>) on Save.
     </p>
-    <div id="groups-container"></div>
-    <div style="display:flex;gap:10px;align-items:center;margin-top:12px;flex-wrap:wrap;">
-      <button class="btn-add-group" id="btn-add-group">+ Add Group</button>
-      <button class="btn-add-group" id="btn-import-hotkeys" style="background:#0f3040;color:#7fb8ff;">⬇ Import from Sheet</button>
-      <span id="import-status" style="color:#7fb8ff;font-size:12px;"></span>
-    </div>
+    <div id="board-container"></div>
   </div>
 </div>
 
@@ -435,7 +460,7 @@
   <div class="card">
     <h2>All Assigned Hint Shortcuts</h2>
     <p style="color:#667;font-size:12px;margin-bottom:6px;">
-      Every hint with a key assigned, across all groups. Edit these in the <b>Hint Groups</b> tab.
+      Every hint with a key assigned, across all steps. Edit these in the <b>Board</b> tab.
     </p>
     <div id="hotkey-summary"></div>
   </div>
@@ -464,6 +489,7 @@
   <span id="status-msg"></span>
 </div>
 
+<script src="config-board.js"></script>
 <script>
 // ── Helpers ───────────────────────────────────────────────────────────────────
 // The last config we fetched from the server. The save handler merges the
@@ -514,9 +540,7 @@ function formatKey(e) {
   return mods.join('+');
 }
 
-// ── Group / Hint DOM builders ─────────────────────────────────────────────────
-let groupIdCounter = 0;
-
+// ── Key-capture widget (still used by the Start/Stop key; formatKey also used by it) ──
 function makeKeyCapture(initialKey) {
   const el = document.createElement('div');
   el.className = 'key-capture' + (initialKey ? ' has-key' : '');
@@ -562,95 +586,174 @@ function makeKeyCapture(initialKey) {
   return el;
 }
 
-function makeHintRow(text, key) {
-  const row = document.createElement('div');
-  row.className = 'hint-row';
+// ── Board editor (config-board.js) — in-memory working state ──────────────────
+// boardState mirrors ConfigBoard.collectBoardConfig's input shape:
+//   { sections:[{id,name,note}], steps:[{id,name,sectionId,hints:[…]}], flags:[…] }
+// audioState mirrors ConfigBoard.collectAudioEvents's input `events` map.
+let boardState = { sections: [], steps: [], flags: [] };
+let audioState = { events: {} };
+const NEW_HINT = () => ({ id: '', type: 'text', text: '', mediaRef: '', label: '', color: '', icon: '', key: '', countsAsClue: true });
 
-  const textInput = document.createElement('input');
-  textInput.type = 'text';
-  textInput.className = 'hint-text-input';
-  textInput.placeholder = 'Hint text…';
-  textInput.value = text || '';
-
-  const keyEl = makeKeyCapture(key || '');
-
-  const delBtn = document.createElement('button');
-  delBtn.className = 'btn-icon btn-del-hint';
-  delBtn.title = 'Delete hint';
-  delBtn.textContent = '✕';
-  delBtn.addEventListener('click', () => row.remove());
-
-  row.appendChild(textInput);
-  row.appendChild(keyEl);
-  row.appendChild(delBtn);
-  return row;
+function renderBoard() {
+  boardContainer.innerHTML = ConfigBoard.renderBoardEditor({
+    sections: boardState.sections,
+    steps: boardState.steps,
+    progress: { flags: boardState.flags },
+  });
+}
+function renderAudio() {
+  audioContainer.innerHTML = ConfigBoard.renderAudioEventsCard({ audio: { events: audioState.events } });
 }
 
-function makeGroupCard(groupData) {
-  const id = ++groupIdCounter;
-  const card = document.createElement('div');
-  card.className = 'group-card';
-
-  // Header
-  const header = document.createElement('div');
-  header.className = 'group-header';
-
-  const nameInput = document.createElement('input');
-  nameInput.type = 'text';
-  nameInput.className = 'group-name';
-  nameInput.placeholder = 'Group name (e.g. Room 1 — Kitchen)';
-  nameInput.value = groupData.name || '';
-
-  const delGroupBtn = document.createElement('button');
-  delGroupBtn.className = 'btn-del-group';
-  delGroupBtn.textContent = '✕ Delete Group';
-  delGroupBtn.addEventListener('click', () => {
-    if (confirm('Delete this group and all its hints?')) card.remove();
-  });
-
-  header.appendChild(nameInput);
-  header.appendChild(delGroupBtn);
-
-  // Body
-  const body = document.createElement('div');
-  body.className = 'group-body';
-
-  const hintsList = document.createElement('div');
-  hintsList.className = 'hints-list';
-
-  (groupData.hints || []).forEach(h => {
-    hintsList.appendChild(makeHintRow(h.text, h.key));
-  });
-
-  const addHintBtn = document.createElement('button');
-  addHintBtn.className = 'btn-add-hint';
-  addHintBtn.textContent = '+ Add Hint';
-  addHintBtn.addEventListener('click', () => {
-    hintsList.appendChild(makeHintRow('', ''));
-  });
-
-  body.appendChild(hintsList);
-  body.appendChild(addHintBtn);
-
-  card.appendChild(header);
-  card.appendChild(body);
-  return card;
-}
-
-// ── Read groups back from DOM ─────────────────────────────────────────────────
-function readGroupsFromDOM() {
-  const groups = [];
-  document.querySelectorAll('.group-card').forEach(card => {
-    const name = card.querySelector('.group-name').value.trim();
-    const hints = [];
-    card.querySelectorAll('.hint-row').forEach(row => {
-      const text = row.querySelector('.hint-text-input').value.trim();
-      const key  = row.querySelector('.key-capture').dataset.key || '';
-      if (text) hints.push({ text, key });
+// Walk the rendered editor DOM back into a plain boardState object.
+function readStepEl(stepEl) {
+  const sel = stepEl.querySelector(':scope > select[data-field="sectionId"]');
+  const hints = [];
+  stepEl.querySelectorAll(':scope > .cb-hints > .cb-hint').forEach(h => {
+    hints.push({
+      id: h.dataset.id || '',
+      type: h.querySelector('[data-field="type"]').value === 'audio' ? 'audio' : 'text',
+      text: h.querySelector('input[data-field="text"]').value,
+      mediaRef: h.querySelector('[data-field="mediaRef"]').textContent.trim(),
+      label: h.querySelector('input[data-field="label"]').value,
+      color: h.querySelector('input[data-field="color"]').value,
+      icon: h.querySelector('input[data-field="icon"]').value,
+      key: h.querySelector('input[data-field="key"]').value,
+      countsAsClue: h.querySelector('input[data-field="countsAsClue"]').checked,
     });
-    if (name || hints.length) groups.push({ name, hints });
   });
-  return groups;
+  return {
+    id: stepEl.dataset.id || '',
+    name: stepEl.querySelector(':scope > input[data-field="name"]').value,
+    sectionId: sel && sel.value ? sel.value : null,
+    hints,
+  };
+}
+function readBoardStateFromDOM() {
+  const editor = boardContainer.querySelector('.cb-editor');
+  if (!editor) return boardState;
+  const sections = [];
+  const steps = [];
+  editor.querySelectorAll(':scope > .cb-section[data-role="section"]').forEach(secEl => {
+    sections.push({
+      id: secEl.dataset.id || '',
+      name: secEl.querySelector(':scope > input[data-field="name"]').value,
+      note: secEl.querySelector(':scope > textarea[data-field="note"]').value,
+    });
+    secEl.querySelectorAll(':scope > .cb-steps > .cb-step').forEach(s => steps.push(readStepEl(s)));
+  });
+  const ung = editor.querySelector(':scope > .cb-ungrouped');
+  if (ung) ung.querySelectorAll(':scope > .cb-steps > .cb-step').forEach(s => steps.push(readStepEl(s)));
+  const flags = [];
+  editor.querySelectorAll('.cb-flag[data-role="flag"] input[data-field="value"]').forEach(i => flags.push(i.value));
+  return { sections, steps, flags };
+}
+function readAudioStateFromDOM() {
+  const events = {};
+  (window.ConfigBoard.AUDIO_EVENT_NAMES || []).forEach(n => { events[n] = { file: '', enabled: false }; });
+  audioContainer.querySelectorAll('.cb-audio-event[data-role="audio-event"]').forEach(row => {
+    const name = row.dataset.name;
+    const ev = {
+      file: row.querySelector('[data-field="file"]').textContent.trim(),
+      enabled: row.querySelector('input[data-field="enabled"]').checked,
+    };
+    const at = row.querySelector('input[data-field="atSecondsRemaining"]');
+    if (at) ev.atSecondsRemaining = at.value;
+    events[name] = ev;
+  });
+  return { volume: parseInt(volSlider.value, 10) / 100, events };
+}
+
+// ── Media picker modal (reuses public/media.html?pick=1) ─────────────────────
+let pendingPick = null;
+function openMediaPicker(onPick) {
+  pendingPick = onPick;
+  window.open('media.html?pick=1', 'mediapick', 'width=900,height=800');
+}
+window.addEventListener('message', (e) => {
+  if (!(e.data && e.data.type === 'media-picked' && typeof e.data.path === 'string')) return;
+  if (pendingPick) { const fn = pendingPick; pendingPick = null; fn(e.data.path); }
+});
+
+// ── Board editor interactivity (delegated; wholesale re-render) ──────────────
+function stepIndexOf(el) {
+  return [...boardContainer.querySelectorAll('.cb-step')].indexOf(el.closest('.cb-step'));
+}
+function sectionIndexOf(el) {
+  return [...boardContainer.querySelectorAll('.cb-section[data-role="section"]')].indexOf(
+    el.closest('.cb-section[data-role="section"]'));
+}
+function swap(arr, i, j) { const t = arr[i]; arr[i] = arr[j]; arr[j] = t; }
+function moveStepInScope(idx, dir) {
+  const scope = boardState.steps[idx].sectionId || null;
+  for (let j = idx + dir; j >= 0 && j < boardState.steps.length; j += dir) {
+    if ((boardState.steps[j].sectionId || null) === scope) { swap(boardState.steps, idx, j); return; }
+  }
+}
+function initBoardEvents() {
+  boardContainer.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-action]');
+    if (!btn || btn.disabled) return;
+    const action = btn.dataset.action;
+
+    if (action === 'pick-media') {
+      boardState = readBoardStateFromDOM();
+      const si = stepIndexOf(btn);
+      const hi = [...btn.closest('.cb-step').querySelectorAll('.cb-hint')].indexOf(btn.closest('.cb-hint'));
+      openMediaPicker((path) => {
+        if (boardState.steps[si] && boardState.steps[si].hints[hi]) {
+          boardState.steps[si].hints[hi].mediaRef = path;
+          boardState.steps[si].hints[hi].type = 'audio';
+        }
+        renderBoard();
+      });
+      return;
+    }
+
+    boardState = readBoardStateFromDOM();
+    switch (action) {
+      case 'add-section': boardState.sections.push({ id: '', name: '', note: '' }); break;
+      case 'add-step':    boardState.steps.push({ id: '', name: '', sectionId: null, hints: [] }); break;
+      case 'add-hint':    boardState.steps[stepIndexOf(btn)].hints.push(NEW_HINT()); break;
+      case 'add-flag':    boardState.flags.push(''); break;
+      case 'section-up':   { const i = sectionIndexOf(btn); if (i > 0) swap(boardState.sections, i, i - 1); break; }
+      case 'section-down': { const i = sectionIndexOf(btn); if (i < boardState.sections.length - 1) swap(boardState.sections, i, i + 1); break; }
+      case 'section-delete': boardState.sections.splice(sectionIndexOf(btn), 1); break;
+      case 'step-up':     moveStepInScope(stepIndexOf(btn), -1); break;
+      case 'step-down':   moveStepInScope(stepIndexOf(btn), 1); break;
+      case 'step-delete': boardState.steps.splice(stepIndexOf(btn), 1); break;
+      case 'hint-up': case 'hint-down': case 'hint-delete': {
+        const si = stepIndexOf(btn);
+        const hi = [...btn.closest('.cb-step').querySelectorAll('.cb-hint')].indexOf(btn.closest('.cb-hint'));
+        const hints = boardState.steps[si].hints;
+        if (action === 'hint-delete') hints.splice(hi, 1);
+        else if (action === 'hint-up' && hi > 0) swap(hints, hi, hi - 1);
+        else if (action === 'hint-down' && hi < hints.length - 1) swap(hints, hi, hi + 1);
+        break;
+      }
+      case 'flag-delete': {
+        const rows = [...boardContainer.querySelectorAll('.cb-flag[data-role="flag"]')];
+        boardState.flags.splice(rows.indexOf(btn.closest('.cb-flag')), 1);
+        break;
+      }
+      case 'import-checklist': return; // stub — sub-milestone 8
+      default: return;
+    }
+    renderBoard();
+  });
+
+  audioContainer.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-action="pick-media"]');
+    if (!btn) return;
+    const name = btn.closest('.cb-audio-event').dataset.name;
+    audioState = { events: readAudioStateFromDOM().events };
+    openMediaPicker((path) => {
+      if (!audioState.events[name]) audioState.events[name] = { file: '', enabled: false };
+      audioState.events[name].file = path;
+      audioState.events[name].enabled = true;
+      renderAudio();
+    });
+  });
 }
 
 // ── Shared DOM refs ───────────────────────────────────────────────────────────
@@ -659,7 +762,10 @@ const volDisplay       = document.getElementById('vol-display');
 const logoPathEl       = document.getElementById('logo-path');
 const logoPreview      = document.getElementById('logo-preview');
 const startStopCapture = document.getElementById('start-stop-key-capture');
-const container        = document.getElementById('groups-container');
+const boardContainer   = document.getElementById('board-container');
+const audioContainer   = document.getElementById('audio-events-container');
+
+initBoardEvents();
 
 volSlider.addEventListener('input', () => volDisplay.textContent = volSlider.value + '%');
 logoPathEl.addEventListener('input', () => {
@@ -699,47 +805,6 @@ startStopCapture.addEventListener('blur', () => {
   }
 });
 
-document.getElementById('btn-add-group').addEventListener('click', () => {
-  container.appendChild(makeGroupCard({ name: '', hints: [] }));
-});
-
-document.getElementById('btn-import-hotkeys').addEventListener('click', async () => {
-  const statusEl = document.getElementById('import-status');
-  statusEl.textContent = 'Reading the Hotkeys tab…';
-  let rows = [];
-  try {
-    const r = await fetch('/api/sheets/hotkeys');
-    rows = ((await r.json()) || {}).rows || [];
-  } catch (e) { rows = []; }
-
-  if (!rows.length) {
-    statusEl.textContent = 'Nothing to import — the Hotkeys tab is empty, or Google Sheets is not connected.';
-    return;
-  }
-  if (!confirm('Replace the hint groups below with ' + rows.length +
-      ' row(s) from the Hotkeys tab?\n\nAny unsaved edits here will be lost. You will still need to Save to keep the result.')) {
-    statusEl.textContent = '';
-    return;
-  }
-
-  // Group rows by group name, first-appearance order
-  const groups = [];
-  const byName = new Map();
-  rows.forEach(x => {
-    const key = x.group || '(no group)';
-    let g = byName.get(key);
-    if (!g) { g = { name: x.group || '', hints: [] }; byName.set(key, g); groups.push(g); }
-    g.hints.push({ text: x.hint, key: x.key || '' });
-  });
-
-  container.innerHTML = '';
-  groups.forEach(g => container.appendChild(makeGroupCard(g)));
-  statusEl.textContent =
-    'Imported ' + rows.length + ' hint' + (rows.length === 1 ? '' : 's') +
-    ' in ' + groups.length + ' group' + (groups.length === 1 ? '' : 's') +
-    ' — review, then Save to keep.';
-});
-
 // ── Populate form from config object ─────────────────────────────────────────
 function populateForm(cfg) {
   const g = cfg.game || {};
@@ -770,10 +835,33 @@ function populateForm(cfg) {
   startStopCapture.textContent = key || 'click to assign';
   startStopCapture.className = 'key-capture' + (key ? ' has-key' : '');
 
-  container.innerHTML = '';
-  const groups = cfg.hintGroups || [];
-  if (groups.length === 0) container.appendChild(makeGroupCard({ name: 'Hints', hints: [] }));
-  else groups.forEach(g => container.appendChild(makeGroupCard(g)));
+  // Board editor: seed boardState from config (sections/steps/progress.flags) and render.
+  boardState = {
+    sections: (cfg.sections || []).map(s => ({ id: s.id || '', name: s.name || '', note: s.note || '' })),
+    steps: (cfg.steps || []).map(s => ({
+      id: s.id || '',
+      name: s.name || '',
+      sectionId: s.sectionId != null ? s.sectionId : null,
+      hints: (s.hints || []).map(h => ({
+        id: h.id || '', type: h.type === 'audio' ? 'audio' : 'text',
+        text: h.text || '', mediaRef: h.mediaRef || '',
+        label: h.label || '', color: h.color || '', icon: h.icon || '', key: h.key || '',
+        countsAsClue: h.countsAsClue !== false,
+      })),
+    })),
+    flags: (cfg.progress && Array.isArray(cfg.progress.flags)) ? cfg.progress.flags.slice() : [],
+  };
+  renderBoard();
+
+  // Audio Events card: seed audioState from config.audio.events and render.
+  audioState = { events: {} };
+  const evs = (cfg.audio && cfg.audio.events) || {};
+  (window.ConfigBoard.AUDIO_EVENT_NAMES || []).forEach(n => {
+    const e = evs[n] || {};
+    audioState.events[n] = { file: e.file || '', enabled: !!e.enabled };
+    if (n === 'midShow') audioState.events[n].atSecondsRemaining = e.atSecondsRemaining != null ? e.atSecondsRemaining : 120;
+  });
+  renderAudio();
 }
 
 // ── Save ──────────────────────────────────────────────────────────────────────
@@ -807,7 +895,21 @@ document.getElementById('save-btn').addEventListener('click', async () => {
     operatorsStartRow:       String(parseInt(document.getElementById('operators-start-row').value, 10) || '').trim(),
   };
 
-  merged.hintGroups = readGroupsFromDOM();
+  // Board tab owns sections/steps/progress/audio. hintGroups is deliberately NOT
+  // touched — the { ...base } spread carries the on-disk value through untouched
+  // (spec §2.3: kept one release as a fallback).
+  boardState = readBoardStateFromDOM();
+  const board = ConfigBoard.collectBoardConfig(boardState);
+  merged.sections = board.sections;
+  merged.steps    = board.steps;
+  merged.progress = { ...(base.progress || {}), ...board.progress };
+
+  const audioEv = ConfigBoard.collectAudioEvents(readAudioStateFromDOM());
+  merged.audio = {
+    ...(base.audio || {}),
+    volume: parseInt(volSlider.value, 10) / 100,
+    events: audioEv.events,
+  };
 
   currentCfg = merged;
   await saveConfig(merged);
@@ -860,15 +962,17 @@ const TAB_SOURCES = {
   'hints-spreadsheet-id':     { sheet: 'hints',     status: 'hints-tabs-status' },
   'operators-spreadsheet-id': { sheet: 'operators', status: 'operators-tabs-status' },
 };
-function esc(t) { return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
+// Local HTML-escaper for <option> building. Named to NOT clobber config-board.js's
+// global esc() (both scripts share global scope; a plain `esc` here would win).
+function escOpt(t) { return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
 
 function fillPicker(picker, titles) {
   const input = document.getElementById(picker.dataset.target);
   const current = (input && input.value || '').trim();
   const opts = ['<option value="">— pick a tab —</option>'].concat(
-    titles.map(t => '<option value="' + esc(t) + '"' + (t === current ? ' selected' : '') + '>' + esc(t) + '</option>'));
+    titles.map(t => '<option value="' + escOpt(t) + '"' + (t === current ? ' selected' : '') + '>' + escOpt(t) + '</option>'));
   if (current && !titles.includes(current)) {
-    opts.splice(1, 0, '<option value="' + esc(current) + '" selected>' + esc(current) + ' (new — will be created)</option>');
+    opts.splice(1, 0, '<option value="' + escOpt(current) + '" selected>' + escOpt(current) + ' (new — will be created)</option>');
   }
   picker.innerHTML = opts.join('');
 }
@@ -929,20 +1033,24 @@ document.getElementById('config-tabs').addEventListener('click', (e) => {
 // ── Hotkey summary (read-only view of every assigned hint shortcut) ───────────
 function buildHotkeySummary() {
   const box = document.getElementById('hotkey-summary');
-  const groups = readGroupsFromDOM();
+  const st = readBoardStateFromDOM();
   const rows = [];
-  groups.forEach(g => (g.hints || []).forEach(h => {
-    if (h.key) rows.push({ key: h.key, group: g.name || '(unnamed group)', text: h.text });
+  (st.steps || []).forEach(step => (step.hints || []).forEach(h => {
+    if (h.key) rows.push({
+      key: h.key,
+      group: step.name || '(unnamed step)',
+      text: h.text || h.label || h.mediaRef || '',
+    });
   }));
   if (!rows.length) {
-    box.innerHTML = '<div class="hotkey-empty">No hint shortcuts assigned yet. Assign them in the Hint Groups tab.</div>';
+    box.innerHTML = '<div class="hotkey-empty">No hint shortcuts assigned yet. Assign them in the Board tab.</div>';
     return;
   }
   rows.sort((a, b) => a.key.localeCompare(b.key));
-  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const h = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   box.innerHTML =
-    '<table class="hotkey-table"><thead><tr><th>Key</th><th>Group</th><th>Hint</th></tr></thead><tbody>' +
-    rows.map(r => `<tr><td class="k">${esc(r.key)}</td><td>${esc(r.group)}</td><td>${esc(r.text)}</td></tr>`).join('') +
+    '<table class="hotkey-table"><thead><tr><th>Key</th><th>Step</th><th>Hint</th></tr></thead><tbody>' +
+    rows.map(r => `<tr><td class="k">${h(r.key)}</td><td>${h(r.group)}</td><td>${h(r.text)}</td></tr>`).join('') +
     '</tbody></table>';
 }
 
