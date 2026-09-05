@@ -64,7 +64,7 @@ const audioPlayer = createAudioPlayer({ mediaRoot: MEDIA_ROOT, eventStore });
 const sheets = createSheets({ credentialsPath: CREDS_PATH, config, eventStore, gameStore });
 const progress = createProgress({ eventStore });
 
-const engine = createGameEngine({ eventStore, gameStore, sheets, signalBus, progress, roomName: cfg.roomName || '' });
+const engine = createGameEngine({ eventStore, gameStore, sheets, signalBus, progress, audioPlayer, config, roomName: cfg.roomName || '' });
 engine.setStartMinutes((cfg.game && cfg.game.timerMinutes) || 60);
 
 const { server } = createWebServer({
