@@ -123,3 +123,19 @@ test('now() reports music ref, effect count, and volume', async () => {
   await player.playMusic('global/bed.mp3');
   assert.equal(player.now().music, 'global/bed.mp3');
 });
+
+test('playEffect does not reject when spawn throws synchronously', async () => {
+  const throwingSpawn = () => { throw new Error('spawn failed: bad args'); };
+  const { player, eventStore } = makePlayer({ spawn: throwingSpawn });
+  await assert.doesNotReject(() => player.playEffect('global/chime.mp3'));
+  assert.ok(eventStore.events.some(e => e.type === 'audio-error' && e.detail.reason === 'spawn-failed'));
+  assert.equal(player.now().effects, 0);
+});
+
+test('playMusic does not reject when spawn throws synchronously', async () => {
+  const throwingSpawn = () => { throw new Error('spawn failed: bad args'); };
+  const { player, eventStore } = makePlayer({ spawn: throwingSpawn });
+  await assert.doesNotReject(() => player.playMusic('global/bed.mp3'));
+  assert.ok(eventStore.events.some(e => e.type === 'audio-error' && e.detail.reason === 'spawn-failed'));
+  assert.equal(player.now().music, null);
+});

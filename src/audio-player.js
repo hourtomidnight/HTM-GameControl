@@ -46,7 +46,13 @@ function createAudioPlayer({ mediaRoot, eventStore, spawn = realSpawn, exec = ex
     if (!fs.existsSync(resolved.full)) { record('audio-error', ref, { channel, reason: 'missing-file' }); return null; }
     const player = players[resolved.ext];
     if (!player) { record('audio-unavailable', ref, { channel, ext: resolved.ext }); return null; }
-    const child = spawn(player.bin, player.args(resolved.full), { stdio: 'ignore' });
+    let child;
+    try {
+      child = spawn(player.bin, player.args(resolved.full), { stdio: 'ignore' });
+    } catch (err) {
+      record('audio-error', ref, { channel, reason: 'spawn-failed', error: String(err) });
+      return null;
+    }
     record('audio-play', ref, { channel });
     return child;
   }
