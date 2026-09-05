@@ -282,3 +282,221 @@ test('unrecognized command types (play-hint, stop-audio) are silent no-ops, not 
   assert.doesNotThrow(() => engine.command({ type: 'stop-audio' }));
   assert.deepEqual(engine.getState(), before); // no state change from either
 });
+
+// ---- Sub-milestone 6: global audio events ----
+
+function mkAudio() {
+  const calls = [];
+  const rec = (name) => (...args) => { calls.push({ name, args }); };
+  return {
+    calls,
+    playEffect: rec('playEffect'), playMusic: rec('playMusic'),
+    stopMusic: rec('stopMusic'), stopAll: rec('stopAll'),
+    setVolume: rec('setVolume'), now: () => ({}),
+    names: () => calls.map(c => c.name),
+    args1: (name) => calls.filter(c => c.name === name).map(c => c.args[0]),
+  };
+}
+
+function audioCfg(over = {}) {
+  return {
+    audio: {
+      volume: 0.6,
+      events: {
+        start: { file: 'g/start.mp3', enabled: true },
+        loop: { file: 'g/bed.mp3', enabled: true },
+        midShow: { file: 'g/2min.mp3', enabled: true, atSecondsRemaining: 120 },
+        win: { file: 'g/win.mp3', enabled: true },
+        lose: { file: 'g/lose.mp3', enabled: true },
+        clueChime: { file: 'g/chime.mp3', enabled: true },
+        ...(over.events || {}),
+      },
+      ...(over.audio || {}),
+    },
+    steps: over.steps || [{
+      id: 'step_1', name: 'S1', order: 0, hints: [
+        { id: 'h1', type: 'text', text: 'T', countsAsClue: true },
+        { id: 'h2', type: 'audio', mediaRef: 'g/clue.mp3', countsAsClue: false },
+        { id: 'h3', type: 'text', text: 'T3', countsAsClue: false },
+      ],
+    }],
+  };
+}
+
+function mkA(opts = {}) {
+  const es = createEventStore({ path: ':memory:' });
+  const gs = createGameStore(es.db);
+  let t = 10000;
+  const progress = opts.withProgress ? createProgress({ eventStore: es, now: () => t }) : null;
+  const audio = mkAudio();
+  const cfgObj = opts.cfg || audioCfg();
+  const saved = [];
+  const config = {
+    current: () => cfgObj,
+    save: (c) => { saved.push(c); return { ok: true, errors: [] }; },
+  };
+  const engine = createGameEngine({
+    eventStore: es, gameStore: gs, progress,
+    audioPlayer: opts.noAudio ? null : audio,
+    config: opts.noConfig ? null : config,
+    now: () => t, setInterval: () => 0, clearInterval: () => {},
+  });
+  return { es, gs, engine, progress, audio, cfgObj, saved, advance: (ms) => { t += ms; } };
+}
+
+test('audio: start fires playEffect(start) then playMusic(loop), in order', () => {
+  const { engine, audio } = mkA();
+  engine.command({ type: 'start' });
+  assert.deepEqual(audio.calls.filter(c => c.name === 'playEffect' || c.name === 'playMusic').map(c => c.args[0]),
+    ['g/start.mp3', 'g/bed.mp3']);
+});
+
+test('audio: a disabled start event is skipped', () => {
+  const { engine, audio } = mkA({ cfg: audioCfg({ events: { start: { file: 'g/start.mp3', enabled: false } } }) });
+  engine.command({ type: 'start' });
+  assert.deepEqual(audio.args1('playEffect'), []);
+  assert.deepEqual(audio.args1('playMusic'), ['g/bed.mp3']);
+});
+
+test('audio: constructor seeds volume from config and calls setVolume once', () => {
+  const { engine, audio } = mkA();
+  assert.strictEqual(engine.getState().volume, 0.6);
+  assert.deepEqual(audio.args1('setVolume'), [0.6]);
+});
+
+test('audio: midShow fires exactly once at atSecondsRemaining', () => {
+  const { engine, audio } = mkA();
+  engine.command({ type: 'start' });
+  // drive down to 2:01
+  for (let i = 0; i < 57; i++) engine.command({ type: 'sub-min' }); // 60 -> 3
+  engine.command({ type: 'sub-min' }); // 2
+  // now 2:00; adjust to 2:01
+  engine.command({ type: 'add-sec' }); // 2:01
+  const midBefore = audio.args1('playEffect').filter(f => f === 'g/2min.mp3').length;
+  engine.tickOnce(); // -> 2:00
+  const after1 = audio.args1('playEffect').filter(f => f === 'g/2min.mp3').length;
+  engine.tickOnce(); // -> 1:59
+  const after2 = audio.args1('playEffect').filter(f => f === 'g/2min.mp3').length;
+  assert.strictEqual(midBefore, 0);
+  assert.strictEqual(after1, 1);
+  assert.strictEqual(after2, 1);
+});
+
+test('audio: escaped fires stopMusic then playEffect(win)', () => {
+  const { engine, audio } = mkA();
+  engine.command({ type: 'start' });
+  audio.calls.length = 0;
+  engine.command({ type: 'escaped' });
+  const seq = audio.calls.map(c => c.name === 'playEffect' ? `playEffect:${c.args[0]}` : c.name);
+  assert.deepEqual(seq.filter(x => x === 'stopMusic' || x === 'playEffect:g/win.mp3'),
+    ['stopMusic', 'playEffect:g/win.mp3']);
+});
+
+test('audio: reset while running fires stopMusic then playEffect(lose)', () => {
+  const { engine, audio } = mkA();
+  engine.command({ type: 'start' });
+  audio.calls.length = 0;
+  engine.command({ type: 'reset' });
+  const seq = audio.calls.map(c => c.name === 'playEffect' ? `playEffect:${c.args[0]}` : c.name);
+  assert.deepEqual(seq.filter(x => x === 'stopMusic' || x === 'playEffect:g/lose.mp3'),
+    ['stopMusic', 'playEffect:g/lose.mp3']);
+  assert.strictEqual(audio.names().includes('stopAll'), false);
+});
+
+test('audio: reset from waiting fires stopAll and not playEffect', () => {
+  const { engine, audio } = mkA();
+  engine.command({ type: 'reset' });
+  assert.strictEqual(audio.names().includes('stopAll'), true);
+  assert.strictEqual(audio.names().includes('playEffect'), false);
+});
+
+test('audio: show-hint with a text hint fires the clue chime', () => {
+  const { engine, audio } = mkA();
+  engine.command({ type: 'start' });
+  audio.calls.length = 0;
+  engine.command({ type: 'show-hint', text: 'T', stepId: 'step_1', hintId: 'h1' });
+  assert.deepEqual(audio.args1('playEffect'), ['g/chime.mp3']);
+});
+
+test('audio: show-hint with an audio hint SKIPS the clue chime', () => {
+  const { engine, audio } = mkA();
+  engine.command({ type: 'start' });
+  audio.calls.length = 0;
+  engine.command({ type: 'show-hint', text: 'x', stepId: 'step_1', hintId: 'h2' });
+  assert.deepEqual(audio.args1('playEffect'), []);
+});
+
+test('audio: show-hint clue counting respects countsAsClue / noCount / legacy', () => {
+  const { engine } = mkA();
+  engine.command({ type: 'start' });
+  engine.command({ type: 'show-hint', text: 'T', stepId: 'step_1', hintId: 'h1' });
+  assert.strictEqual(engine.getState().clueCount, 1); // countsAsClue:true
+  engine.command({ type: 'show-hint', text: 'T3', stepId: 'step_1', hintId: 'h3' });
+  assert.strictEqual(engine.getState().clueCount, 1); // countsAsClue:false -> no inc
+  engine.command({ type: 'show-hint', text: 'T', stepId: 'step_1', hintId: 'h1', noCount: true });
+  assert.strictEqual(engine.getState().clueCount, 1); // noCount -> no inc
+  engine.command({ type: 'show-hint', text: 'legacy' }); // no stepId
+  assert.strictEqual(engine.getState().clueCount, 2); // backward compat inc
+});
+
+test('audio: play-hint plays the clip, marks progress, does not count, records, no activeHints', () => {
+  const { engine, es } = mkA({ withProgress: true });
+  engine.command({ type: 'start' });
+  engine.command({ type: 'play-hint', stepId: 'step_1', hintId: 'h2' });
+  const s = engine.getState();
+  assert.strictEqual(s.clueCount, 0);
+  assert.deepEqual(s.activeHints, []);
+  assert.ok(s.steps.step_1 && s.steps.step_1.clueGivenAt);
+  assert.strictEqual(es.query({ type: 'play-hint' }).length, 1);
+});
+
+test('audio: play-hint calls audioPlayer.playEffect with mediaRef', () => {
+  const { engine, audio } = mkA();
+  engine.command({ type: 'start' });
+  audio.calls.length = 0;
+  engine.command({ type: 'play-hint', stepId: 'step_1', hintId: 'h2' });
+  assert.deepEqual(audio.args1('playEffect'), ['g/clue.mp3']);
+});
+
+test('audio: play-hint while not running is a no-op', () => {
+  const { engine, es } = mkA();
+  engine.command({ type: 'play-hint', stepId: 'step_1', hintId: 'h2' });
+  assert.strictEqual(es.query({ type: 'play-hint' }).length, 0);
+});
+
+test('audio: stop-audio calls stopAll, records, works in any phase', () => {
+  const { engine, audio, es } = mkA();
+  audio.calls.length = 0;
+  engine.command({ type: 'stop-audio' });
+  assert.strictEqual(audio.names().includes('stopAll'), true);
+  assert.strictEqual(es.query({ type: 'stop-audio' }).length, 1);
+});
+
+test('audio: vol-up updates config in memory but only persists on lifecycle transitions', () => {
+  const { engine, audio, cfgObj, saved } = mkA();
+  audio.calls.length = 0;
+  engine.command({ type: 'vol-up' });
+  assert.strictEqual(audio.args1('setVolume').length, 1);
+  assert.ok(Math.abs(cfgObj.audio.volume - 0.61) < 1e-9);
+  assert.strictEqual(saved.length, 0); // not persisted on the click
+  engine.command({ type: 'start' });
+  assert.strictEqual(saved.length, 1); // persisted on start
+});
+
+test('audio: volume set by operator survives a reset (re-seeded from config)', () => {
+  const { engine } = mkA();
+  engine.command({ type: 'start' });
+  engine.command({ type: 'vol-up' }); engine.command({ type: 'vol-up' }); // 0.62
+  engine.command({ type: 'reset' });
+  assert.ok(Math.abs(engine.getState().volume - 0.62) < 1e-9);
+});
+
+test('audio: engine with no audioPlayer and no config keeps legacy behavior', () => {
+  const { engine, es } = mkA({ noAudio: true, noConfig: true });
+  engine.command({ type: 'start' });
+  engine.command({ type: 'show-hint', text: 'T', stepId: 'step_1', hintId: 'h3' });
+  assert.strictEqual(engine.getState().clueCount, 1); // unconditional legacy inc
+  assert.doesNotThrow(() => engine.command({ type: 'play-hint', stepId: 'step_1', hintId: 'h2' }));
+  assert.doesNotThrow(() => engine.command({ type: 'stop-audio' }));
+  assert.strictEqual(es.query({ type: 'play-hint' }).length, 0); // no-op without audioPlayer
+});

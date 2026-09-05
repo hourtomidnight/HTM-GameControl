@@ -9,6 +9,7 @@ function createGameEngine(deps) {
     now = () => Date.now(),
     setInterval: setIv = setInterval, clearInterval: clearIv = clearInterval,
     sheets = null, signalBus = null, progress = null,
+    audioPlayer = null, config = null,
     roomName = '',
   } = deps;
 
@@ -18,7 +19,14 @@ function createGameEngine(deps) {
   let gameId = null;
   let pendingFields = {};
   let timer = null;
+  let midShowFired = false;
   const listeners = [];
+
+  // Restore-on-boot: seed volume from persisted config, push to the player.
+  if (config) {
+    reseedVolumeFromConfig();
+  }
+  if (audioPlayer) safeAudio(() => audioPlayer.setVolume(s.volume));
 
   function blankState() {
     return {
@@ -75,6 +83,37 @@ function createGameEngine(deps) {
     } catch {}
   }
 
+  function safeAudio(fn) {
+    try {
+      const p = fn();
+      if (p && typeof p.then === 'function') p.catch(() => {});
+    } catch {}
+  }
+
+  function safeConfigSave() {
+    try { config.save(config.current()); } catch {}
+  }
+
+  function audioEvents() {
+    return (config && config.current().audio && config.current().audio.events) || {};
+  }
+
+  function findHint(stepId, hintId) {
+    if (!config || !stepId || !hintId) return null;
+    const steps = config.current().steps;
+    if (!Array.isArray(steps)) return null;
+    const step = steps.find(st => st && st.id === stepId);
+    if (!step || !Array.isArray(step.hints)) return null;
+    return step.hints.find(h => h && h.id === hintId) || null;
+  }
+
+  function reseedVolumeFromConfig() {
+    if (!config) return;
+    const audio = config.current().audio;
+    const v = Number(audio && audio.volume);
+    if (Number.isFinite(v)) s.volume = Math.max(0, Math.min(1, v));
+  }
+
   function startTimer() {
     if (timer != null) return;
     timer = setIv(() => tickOnce(), 1000);
@@ -90,6 +129,14 @@ function createGameEngine(deps) {
     } else {
       s.currentSec++;
       if (s.currentSec >= 60) { s.currentMin++; s.currentSec = 0; }
+    }
+    if (audioPlayer && !midShowFired && !s.clockForward) {
+      const mid = audioEvents().midShow;
+      if (mid && mid.enabled && mid.file &&
+          (s.currentMin * 60 + s.currentSec) === mid.atSecondsRemaining) {
+        safeAudio(() => audioPlayer.playEffect(mid.file));
+        midShowFired = true;
+      }
     }
     emit();
   }
@@ -115,6 +162,8 @@ function createGameEngine(deps) {
 
     if (type === 'vol-up' || type === 'vol-down') {
       s.volume = Math.max(0, Math.min(1, s.volume + (type === 'vol-up' ? 0.01 : -0.01)));
+      if (audioPlayer) safeAudio(() => audioPlayer.setVolume(s.volume));
+      if (config && config.current().audio) config.current().audio.volume = s.volume;
       record(type, { _source: msg._source }); emit(); return;
     }
 
@@ -140,10 +189,17 @@ function createGameEngine(deps) {
       gameId = g.id;
       s.phase = 'running'; s.timerRunning = true; s.onSplash = false;
       s.currentMin = startMinutes; s.currentSec = 0; s.clockForward = false;
+      midShowFired = false;
       startTimer();
       if (progress) { try { progress.startGame(gameId, startTime); } catch {} }
       record(type, { _source: msg._source });
       if (sheets) safeSheets(() => sheets.onGameStart(gameId, session));
+      if (audioPlayer) {
+        const ev = audioEvents();
+        if (ev.start && ev.start.enabled && ev.start.file) safeAudio(() => audioPlayer.playEffect(ev.start.file));
+        if (ev.loop && ev.loop.enabled && ev.loop.file) safeAudio(() => audioPlayer.playMusic(ev.loop.file));
+      }
+      if (config) safeConfigSave();
       emit();
       return;
     }
@@ -174,7 +230,13 @@ function createGameEngine(deps) {
       if (!session) return;
       const rec = st.applyHint(session, msg.text || '', now());
       if (!s.activeHints.includes(rec.text)) s.activeHints.push(rec.text);
-      s.clueCount++;
+      const shownHint = findHint(msg.stepId, msg.hintId);
+      const hintCounts = shownHint ? (shownHint.countsAsClue !== false) : true;
+      if (hintCounts && msg.noCount !== true) s.clueCount++;
+      if (audioPlayer && (!shownHint || shownHint.type !== 'audio')) {
+        const chime = audioEvents().clueChime;
+        if (chime && chime.enabled && chime.file) safeAudio(() => audioPlayer.playEffect(chime.file));
+      }
       syncGameRow({ hint_count: session.hints.length });
       if (progress && msg.stepId) { try { progress.markGiven(msg.stepId); } catch {} }
       record(type, { subject: 'hint', value: rec.text, _source: msg._source });
@@ -205,6 +267,26 @@ function createGameEngine(deps) {
       return;
     }
 
+    if (type === 'play-hint') {
+      if (s.phase !== 'running') return;
+      if (!audioPlayer) return;
+      const hint = findHint(msg.stepId, msg.hintId);
+      if (hint && hint.mediaRef) safeAudio(() => audioPlayer.playEffect(hint.mediaRef));
+      if (progress && msg.stepId) { try { progress.markGiven(msg.stepId); } catch {} }
+      const counts = hint ? (hint.countsAsClue !== false) : true;
+      if (counts && msg.noCount !== true) s.clueCount++;
+      record('play-hint', { subject: msg.stepId, value: msg.hintId, _source: msg._source });
+      emit();
+      return;
+    }
+
+    if (type === 'stop-audio') {
+      if (audioPlayer) safeAudio(() => audioPlayer.stopAll());
+      record('stop-audio', { _source: msg._source });
+      emit();
+      return;
+    }
+
     if (type === 'escaped') {
       if (session) {
         st.finalizeSession(session, now(), 'Escaped');
@@ -215,11 +297,18 @@ function createGameEngine(deps) {
       stopTimer();
       record(type, { _source: msg._source });
       session = null;
+      if (audioPlayer) {
+        const ev = audioEvents();
+        safeAudio(() => audioPlayer.stopMusic());
+        if (ev.win && ev.win.enabled && ev.win.file) safeAudio(() => audioPlayer.playEffect(ev.win.file));
+      }
+      if (config) safeConfigSave();
       emit();
       return;
     }
 
     if (type === 'reset') {
+      const wasRunning = s.phase === 'running';
       if (session) {
         st.finalizeSession(session, now(), 'Reset-Lost');
         syncGameRow({ ended_ts: session.endTime, status: 'Reset-Lost' });
@@ -227,9 +316,21 @@ function createGameEngine(deps) {
       }
       stopTimer();
       session = null; gameId = null; pendingFields = {};
+      if (audioPlayer) {
+        const ev = audioEvents();
+        if (wasRunning) {
+          safeAudio(() => audioPlayer.stopMusic());
+          if (ev.lose && ev.lose.enabled && ev.lose.file) safeAudio(() => audioPlayer.playEffect(ev.lose.file));
+        } else {
+          safeAudio(() => audioPlayer.stopAll());
+        }
+      }
       s = blankState();
+      reseedVolumeFromConfig();
+      midShowFired = false;
       if (progress) { try { progress.startGame(null, now()); } catch {} }
       record(type, { _source: msg._source });
+      if (config) safeConfigSave();
       emit();
       return;
     }
